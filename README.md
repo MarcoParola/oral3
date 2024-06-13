@@ -1,7 +1,7 @@
 # **Oral3**
 
 
-This github repo for the design analysis of different Case-Based Reasoning (CBR) systems supporting the oral cancer diagnosis:
+This GitHub repo for the design analysis of different Case-Based Reasoning (CBR) systems supporting oral cancer diagnosis:
 - DL
 - DL-CBR
 - IDL-CBR
@@ -12,7 +12,7 @@ TODO magari qui mettiamo una foto/una tabella/uno schema che renda l'idea.
 
 ## Installation
 
-To install the project, simply clone the repository and get the necessary dependencies:
+To install the project, clone the repository and get the necessary dependencies:
 ```sh
 git clone https://github.com/MarcoParola/oral3.git
 cd oral3
