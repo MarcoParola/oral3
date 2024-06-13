@@ -1,0 +1,10 @@
+hydra-core
+matplotlib
+torch
+torchvision
+pytorch_lightning
+wandb
+omegaconf
+flatdict
+scipy
+scikit-learn
