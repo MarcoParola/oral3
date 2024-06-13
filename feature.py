@@ -14,7 +14,6 @@ from src.data.segmentation.datamodule import OralSegmentationDataModule
 from src.models.classification import OralClassifierModule
 from src.models.contrastive_classification import OralContrastiveClassifierModule
 from src.models.saliency_classification import OralSaliencyClassifierModule
-from delete.classificationKNN import OralClassifierModuleKNN
 from src.data.classification.datamodule import OralClassificationDataModule
 from src.data.classification.dataset import OralClassificationDataset
 from src.data.saliency_classification.datamodule import OralClassificationSaliencyDataModule
