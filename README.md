@@ -28,7 +28,7 @@ mkdir data
 ```
 Then you can download the oral coco-dataset (both images and json file) from [TODO-put-link]. Copy them into `data` folder and unzip the file `oral1.zip`.
 
-Next, create a new project on Weights & Biases named `oral3`. Edit `entity` parameter in config.yaml by sett. Log in and paste your API key when prompted.
+Next, create a new project on Weights & Biases named `oral3`. Edit `entity` parameter in `config.yaml` by sett. Log in and paste your API key when prompted.
 ```
 wandb login
 ```
@@ -56,7 +56,7 @@ python -m scripts.dataset-stats --dataset data\test.json # test set
 
 Use the following command to visualize the dataset bbox distribution: 
 ```
-python scripts\plot-distribution.py --dataset data\dataset.json
+python -m scripts.plot-distribution --dataset data/dataset.json
 ```
 
 ### Case base generation via DL
