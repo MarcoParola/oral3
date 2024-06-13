@@ -63,6 +63,6 @@ ae:
 
 wandb:
   wandb:
-  entity: simonelandi99
-  project: improve_classifier_via_segment 
+  entity:
+  project: oral3
   tag: ""
