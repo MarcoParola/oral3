@@ -1,0 +1,68 @@
+task: 'classification'
+classification_mode: 'whole'
+
+# models and weights here: https://pytorch.org/vision/stable/models.html
+load_model: shufflenet_v2_x1_0
+
+model:
+  num_classes: 3
+  name: resnet50
+  weights: ResNet50_Weights.IMAGENET1K_V2
+
+model_seg: 'fcn'
+sgm_type: 'soft'
+
+dataset:
+  train: ./data/contrastive_train_min.json
+  val: ./data/contrastive_val_min.json
+  test: ./data/contrastive_test_min.json
+  #train: ./data/train.json
+  #val: ./data/val.json
+  #test: ./data/test.json
+  #train: ./data/knn_train.json
+  #val: ./data/knn_val.json
+  #test: ./data/knn_test.json
+  #train: ./data/fsl_train.json
+  #val: ./data/fsl_val.json
+  #test: ./data/fsl_test.json
+  #train: ./data/cae_train.json
+  #val: ./data/cae_val.json
+  #test: ./data/cae_test.json
+  #test: ./data/few_shot_dataset.json
+  resize: 224
+
+train:
+  save_path: "./models/"
+  seed: -1
+  batch_size: 32
+  #batch_size: 1
+  lr: 0.000001
+  #lr: 0.001
+  accelerator: "cpu"
+  devices: 1
+  max_epochs: 200
+  patience: 20
+
+
+generate_map: "None"
+
+checkpoint:
+  version: 0
+
+log:  
+  path: "./logs/"
+  wandb: True
+  tensorboard: False
+
+# Configuration parameters for the autoencoder
+ae:
+  latent_dim: 512
+  enc_feature_maps: 32
+  dec_feature_maps: 32
+  n_channels: 3
+
+wandb:
+  wandb:
+  entity: simonelandi99
+  project: improve_classifier_via_segment 
+  tag: ""
