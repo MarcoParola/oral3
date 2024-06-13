@@ -68,4 +68,21 @@ You can use different DL strategies to create a feature embedding representation
 
 
 ### CBR system running
+#### Deep Learning
+Classification on the whole dataset:
+- Train CNN classifier on the whole dataset
+- Test CNN classifier on the whole dataset
+Specify the pre-trained classification model by setting `model.weights`.`classification_mode=whole` specifies we are solving the classification without exploiting the segment information.
+```
+# TRAIN classifier on whole images
+python train.py task=c classification_mode=whole model.weights=ConvNeXt_Small_Weights.DEFAULT 
 
+# TEST classifier whole images
+python test.py task=c classification_mode=whole checkpoint.version=123
+```
+
+#### Informed Deep Learning
+
+#### Self supervised learning
+
+#### Few-shot learning
