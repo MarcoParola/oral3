@@ -28,6 +28,11 @@ mkdir data
 ```
 Then you can download the oral coco-dataset (both images and json file) from [TODO-put-link]. Copy them into `data` folder and unzip the file `oral1.zip`.
 
+Next, create a new project on Weights & Biases named `oral3`. Edit `entity` parameter in config.yaml by sett. Log in and paste your API key when prompted.
+```
+wandb login
+```
+
 ## Usage
 Regarding the usage of this repo, in order to reproduce the experiments, we organize the workflow in three steps: (i) data preparation and visualization, (ii) case base generation via DL, and (iii) CBR system running via kNN algorithm.
 
