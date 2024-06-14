@@ -3,12 +3,12 @@
 
 This GitHub repo for the design analysis of different Case-Based Reasoning (CBR) systems supporting oral cancer diagnosis:
 - DL
-- DL-CBR
-- IDL-CBR
+- SL-CBR
+- IDL-CBR <-- RIMUOVERE?
 - SSL-CBR
 - FSL-CBR
 
-<img width="560" alt="intro" src="images/DL-CBR-scheme.drawio.png">
+<img width="560" alt="intro" src="DL-CBR-scheme.drawio.png">
 
 ## Installation
 
@@ -62,13 +62,26 @@ python -m scripts.plot-distribution --dataset data/dataset.json
 ### Case base generation via DL
 You can use different DL strategies to create a feature embedding representation of your images for the base of CBR system:
 - Deep learning
-- Informed deep learning
+- Supervised learning
 - Self supervised learning (cae lo farei rientrare in questa categoria)
 - Few-shot learning
 
 
 ### CBR system running
 #### Deep Learning
+Classification on the whole dataset:
+- Train CNN classifier on the whole dataset
+- Test CNN classifier on the whole dataset
+Specify the pre-trained classification model by setting `model.weights`.`classification_mode=whole` specifies we are solving the classification without exploiting the segment information.
+```
+# TRAIN classifier on whole images
+python train.py task=c classification_mode=whole model.weights=ConvNeXt_Small_Weights.DEFAULT 
+
+# TEST classifier whole images
+python test.py task=c classification_mode=whole checkpoint.version=123
+```
+
+#### Supervised Learning
 Classification on the whole dataset:
 - Train CNN classifier on the whole dataset
 - Test CNN classifier on the whole dataset
@@ -95,7 +108,61 @@ Then, to perform the fit and test of the KNN, it is necessary to specify the `fe
 python knn.py
 ```
 
-#### Informed Deep Learning
+#### Self supervised learning
+Classification on the whole dataset:
+- Train CAE on the whole dataset
+- Feature extraction on the anchor test and the test set
+- KNN fit on the anchor set and KNN test on the test set
+It is possible to set in the `src/data1/autoencoder/dataset.py` whether to process the whole image or the bounding box.
+`classification_mode=cae` specifies we are solving the classification without exploiting the segment information.
+```
+# TRAIN CAE on whole images
+python train.py task=c classification_mode=cae model.weights=Scratch.DEFAULT
+```
+
+To perform feature extraction from the CAE, it is necessary to execute the following command, specifying the `feature_path` related to the anchor image features and the test set features within the `feature.py` file.
+```
+# FEATURE EXTRACTION from the CAE
+python feature.py task=c classification_mode=cae checkpoint.version=123 
+```
+
+Then, to perform the fit and test of the KNN, it is necessary to specify the `features_path_anchor` and `features_path_test` within the `knn.py` file.
+```
+# FIT knn on anchor images, TEST knn on test images
+python knn.py
+```
+
+#### Few-shot learning
+Classification on the anchor dataset:
+- Train CAE on the anchor dataset
+- Feature extraction on the anchor test and the test set
+- KNN fit on the anchor set and KNN test on the test set
+For the experiment related to few-shot learning, first it is necessary to generate the dataset.
+```
+python scripts/split-fsl-dataset.py --folder data 
+python scripts/fsl_test_generation.py
+```
+
+It is possible to set in the `src/data1/autoencoder/dataset.py` whether to process the whole image or the bounding box.
+`classification_mode=cae` specifies we are solving the classification without exploiting the segment information.
+```
+# TRAIN CAE on anchor images
+python train.py task=c classification_mode=cae model.weights=Scratch.DEFAULT
+```
+
+To perform feature extraction from the CAE, it is necessary to execute the following command, specifying the `feature_path` related to the anchor image features and the test set features within the `feature.py` file.
+```
+# FEATURE EXTRACTION from the CAE
+python feature.py task=c classification_mode=cae checkpoint.version=123 
+```
+
+Then, to perform the fit and test of the KNN, it is necessary to specify the `features_path_anchor` and `features_path_test` within the `knn.py` file.
+```
+# FIT knn on anchor images, TEST knn on test images
+python knn.py
+```
+
+#### Contrastive learning ?
 Classification on the contrastive dataset:
 - Train CNN classifier on the contrastive dataset
 - Test CNN classifier on the contrastive dataset
@@ -131,58 +198,6 @@ To perform feature extraction from the classifier, it is necessary to execute th
 ```
 # FEATURE EXTRACTION from the classifier
 python feature.py task=c classification_mode=whole checkpoint.version=123 
-```
-
-Then, to perform the fit and test of the KNN, it is necessary to specify the `features_path_anchor` and `features_path_test` within the `knn.py` file.
-```
-# FIT knn on anchor images, TEST knn on test images
-python knn.py
-```
-
-#### Self supervised learning
-Classification on the whole dataset:
-- Train CAE on the whole dataset
-- Feature extraction on the anchor test and the test set
-- KNN fit on the anchor set and KNN test on the test set
-`classification_mode=cae` specifies we are solving the classification without exploiting the segment information.
-```
-# TRAIN CAE on whole images
-python train.py task=c classification_mode=cae model.weights=Scratch.DEFAULT
-```
-
-To perform feature extraction from the CAE, it is necessary to execute the following command, specifying the `feature_path` related to the anchor image features and the test set features within the `feature.py` file.
-```
-# FEATURE EXTRACTION from the CAE
-python feature.py task=c classification_mode=cae checkpoint.version=123 
-```
-
-Then, to perform the fit and test of the KNN, it is necessary to specify the `features_path_anchor` and `features_path_test` within the `knn.py` file.
-```
-# FIT knn on anchor images, TEST knn on test images
-python knn.py
-```
-
-#### Few-shot learning
-Classification on the anchor dataset:
-- Train CAE on the anchor dataset
-- Feature extraction on the anchor test and the test set
-- KNN fit on the anchor set and KNN test on the test set
-For the experiment related to few-shot learning, first it is necessary to generate the dataset.
-```
-python scripts/split-fsl-dataset.py --folder data 
-python scripts/fsl_test_generation.py
-```
-
-`classification_mode=cae` specifies we are solving the classification without exploiting the segment information.
-```
-# TRAIN CAE on anchor images
-python train.py task=c classification_mode=cae model.weights=Scratch.DEFAULT
-```
-
-To perform feature extraction from the CAE, it is necessary to execute the following command, specifying the `feature_path` related to the anchor image features and the test set features within the `feature.py` file.
-```
-# FEATURE EXTRACTION from the CAE
-python feature.py task=c classification_mode=cae checkpoint.version=123 
 ```
 
 Then, to perform the fit and test of the KNN, it is necessary to specify the `features_path_anchor` and `features_path_test` within the `knn.py` file.
