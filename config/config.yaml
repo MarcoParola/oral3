@@ -19,9 +19,6 @@ dataset:
   #train: ./data/train.json
   #val: ./data/val.json
   #test: ./data/test.json
-  #train: ./data/knn_train.json
-  #val: ./data/knn_val.json
-  #test: ./data/knn_test.json
   #train: ./data/fsl_train.json
   #val: ./data/fsl_val.json
   #test: ./data/fsl_test.json
