@@ -5,14 +5,14 @@ from sklearn.metrics import classification_report
 import numpy as np
 from pytorch_lightning.callbacks import ModelCheckpoint
 from src.models.cae import Autoencoder
-from src.data.autoencoder.datamodule import OralAutoencoderDataModule
+from src.data1.autoencoder.datamodule import OralAutoencoderDataModule
 from src.models.few_shot_classification import OralFewShotClassifierModule
-from src.data.classification.datamodule import OralClassificationDataModule
-from src.data.contrastive_classification.datamodule import OralContrastiveDataModule
-from src.data.masked_classification.datamodule import OralClassificationMaskedDataModule
-from src.data.saliency_classification.datamodule import OralClassificationSaliencyDataModule
-from src.data.few_shot_classification.datamodule import OralFewShotDataModule
-from src.data.segmentation.datamodule import OralSegmentationDataModule
+from src.data1.classification.datamodule import OralClassificationDataModule
+from src.data1.contrastive_classification.datamodule import OralContrastiveDataModule
+from src.data1.masked_classification.datamodule import OralClassificationMaskedDataModule
+from src.data1.saliency_classification.datamodule import OralClassificationSaliencyDataModule
+from src.data1.few_shot_classification.datamodule import OralFewShotDataModule
+from src.data1.segmentation.datamodule import OralSegmentationDataModule
 from src.models.classification import *
 from src.log import LossLogCallback, get_loggers, HydraTimestampRunCallback
 from src.models.contrastive_classification import OralContrastiveClassifierModule
