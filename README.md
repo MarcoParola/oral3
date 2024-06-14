@@ -8,7 +8,7 @@ This GitHub repo for the design analysis of different Case-Based Reasoning (CBR)
 - SSL-CBR
 - FSL-CBR
 
-<img width="560" alt="intro" src="DL-CBR-scheme.drawio.png">
+<img width="560" alt="intro" src="img/DL-CBR-scheme.drawio.png">
 
 ## Installation
 
