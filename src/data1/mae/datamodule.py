@@ -3,10 +3,11 @@ import hydra
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
 
-from src.data1.few_shot_classification.dataset import OralFewShotDataset
+from src.data1.mae.dataset import OralMAEDataset
 
-class OralFewShotDataModule(LightningDataModule):
-    def __init__(self, train, val, test, batch_size=32, train_transform=None, val_transform=None,
+
+class OralMAEDataModule(LightningDataModule):
+    def __init__(self, train, val, test, batch_size=16, train_transform=None, val_transform=None,
                  test_transform=None, transform=None):
         super().__init__()
         if train_transform is None:
@@ -16,19 +17,21 @@ class OralFewShotDataModule(LightningDataModule):
         if val_transform is None:
             val_transform = transform
 
-        self.train_dataset = OralFewShotDataset(train, transform=train_transform)
-        self.val_dataset = OralFewShotDataset(val, transform=val_transform)
-        self.test_dataset = OralFewShotDataset(test, transform=test_transform)
+        self.train_dataset = OralMAEDataset(train, transform=train_transform)
+        self.val_dataset = OralMAEDataset(val, transform=val_transform)
+        self.test_dataset = OralMAEDataset(test, transform=test_transform)
         self.batch_size = batch_size
-        
+
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size, shuffle=False)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size)
 
     def test_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
 
     def predict_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
+
+

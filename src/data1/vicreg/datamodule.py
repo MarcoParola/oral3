@@ -1,14 +1,13 @@
+import hydra
+
 from torch.utils.data import DataLoader
-from pytorch_lightning import LightningModule
 from pytorch_lightning import LightningDataModule
 
+from src.data1.vicreg.dataset import OralVICRegDataset
 
 
-from src.data1.segmentation.dataset import OralSegmentationDataset
-
-
-class OralSegmentationDataModule(LightningDataModule):
-    def __init__(self, train, val, test, batch_size=32, train_transform=None, val_transform=None,
+class OralVICRegDataModule(LightningDataModule):
+    def __init__(self, train, val, test, batch_size=16, train_transform=None, val_transform=None,
                  test_transform=None, transform=None):
         super().__init__()
         if train_transform is None:
@@ -18,9 +17,9 @@ class OralSegmentationDataModule(LightningDataModule):
         if val_transform is None:
             val_transform = transform
 
-        self.train_dataset = OralSegmentationDataset(train, transform=train_transform)
-        self.val_dataset = OralSegmentationDataset(val, transform=val_transform)
-        self.test_dataset = OralSegmentationDataset(test, transform=test_transform)
+        self.train_dataset = OralVICRegDataset(train, transform=train_transform)
+        self.val_dataset = OralVICRegDataset(val, transform=val_transform)
+        self.test_dataset = OralVICRegDataset(test, transform=test_transform)
         self.batch_size = batch_size
 
     def train_dataloader(self):
@@ -34,3 +33,5 @@ class OralSegmentationDataModule(LightningDataModule):
 
     def predict_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=False)
+
+

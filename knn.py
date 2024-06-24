@@ -28,12 +28,8 @@ def main(cfg):
     # Usa il percorso assoluto combinato con la directory originale
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae_anchor')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae_anchor')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae_bbox')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae_bbox')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae_anchor_bbox')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae_anchor_bbox')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/convnext')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/convnext')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/vit')
@@ -50,8 +46,16 @@ def main(cfg):
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive270')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive360')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive360')
-    features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive450')
-    features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive450')
+    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive450')
+    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive450')
+    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/dino')
+    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/dino')
+    features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/vicreg')
+    features_path_test = os.path.join(orig_cwd, 'outputs/features/test/vicreg')
+    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/mae')
+    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/mae')
+    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/moco')
+    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/moco')
 
     features_train, labels_train = load_features(features_path_anchor)
     features_test, labels_test = load_features(features_path_test)
@@ -63,11 +67,6 @@ def main(cfg):
     for i in range(features_test.shape[1]):
         features_test[:, i] = (features_test[:, i] - features_test[:, i].min()) / (features_test[:, i].max() - features_test[:, i].min() + 1e-8)
 
-    #print(f'Features shape: {features.shape}')
-    #print(f'Labels shape: {labels.shape}')
-    
-    #X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.3, random_state=42)
-        
     X_train = features_train
     y_train = labels_train
     X_test = features_test

@@ -4,12 +4,17 @@ import os
 import json
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw
+from lightly.transforms.vicreg_transform import VICRegTransform
 
 
-class OralAutoencoderDataset(torch.utils.data.Dataset):
+class OralVICRegDataset(torch.utils.data.Dataset):
     def __init__(self, images, transform=None):
         self.images = images
-        self.transform = transform
+        self.transform = transforms.Compose([
+            transforms.Resize((224, 224), antialias=True),
+            VICRegTransform(input_size=224)
+        ])
+        self.transform2 = transform
 
         with open(images, "r") as f:
             self.dataset = json.load(f)
@@ -36,18 +41,12 @@ class OralAutoencoderDataset(torch.utils.data.Dataset):
         image_name = image["file_name"]
         
         image_path = os.path.join(os.path.dirname(self.images), "oral1", image["file_name"])
-        
         image = Image.open(image_path).convert("RGB")
-        
-        # prova bbox
-        #x, y, w, h = annotation["bbox"]
-        #subimage = image.crop((x, y, x+w, y+h))
 
         if self.transform:
-            #subimage = self.transform(subimage)
+            image2 = self.transform2(image)
             image = self.transform(image)
             
         category = self.categories[annotation["category_id"]]
 
-        #return subimage, subimage, category, image_name
-        return image, image, category, image_name
+        return image, category, image_id, image_name, image2

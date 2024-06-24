@@ -21,7 +21,7 @@ from sklearn.model_selection import GridSearchCV
 
 
 class OralContrastiveClassifierModule(LightningModule):
-    def __init__(self, weights, num_classes, lr=1e-3, temperature=0.5, max_epochs=100):
+    def __init__(self, weights, num_classes, output_dim, lr=1e-3, temperature=0.5, max_epochs=100):
         super().__init__()
         self.current_labels = None
         self.current_ids = None
@@ -36,15 +36,15 @@ class OralContrastiveClassifierModule(LightningModule):
         weights_name = weights.split(".")[1]
         self.model_name = weights.split("_Weights")[0].lower()
         self.num_classes = num_classes
+        self.output_dim = output_dim
         self.total_labels = None
         self.total_predictions = None
         
-        # Se si addestra da zero, definisco direttamente la struttura del modello
         if "Scratch" in weights_cls:
             
             self.type = "Scratch"
 
-            self.model = torch.nn.Sequential()  # Inizializza self.model come un oggetto Sequential()
+            self.model = torch.nn.Sequential()
 
             self.model.scratch = torch.nn.Sequential(
                 torch.nn.Conv2d(3, 64, 3),
@@ -60,13 +60,13 @@ class OralContrastiveClassifierModule(LightningModule):
                 torch.nn.ReLU(),
                 torch.nn.MaxPool2d(2),
                 torch.nn.Flatten(),
-                torch.nn.Linear(512 * 12 * 12, 64)
+                torch.nn.Linear(512 * 12 * 12, self.output_dim)
             )
 
             self.model.lastLayer = torch.nn.Sequential(
                 torch.nn.ReLU(),
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(64, num_classes)
+                torch.nn.Linear(self.output_dim, num_classes)
             )
         
         else:
@@ -91,34 +91,11 @@ class OralContrastiveClassifierModule(LightningModule):
 
         
     def forward(self, x):
-        #features = self.feature_extractor(x)
-        # mostra il contenuto di x
-        #print(f"Input shape: {x.shape}")
         x = self.model(x)
-        # mostra il contenuto di x
-        #print(f"Output shape: {x.shape}")
         return x
     
     def extract_features(self, x):
         return self.feature_extractor(x)
-    
-    '''def save_features_to_csv(self, features, ids, labels, imgNames, positives, negatives, pos_imgs, neg_imgs):
-        os.makedirs('./outputs/features', exist_ok=True)
-        for key, value in features.items():
-            value = value.view(value.size(0), -1).detach().numpy()
-            df = pd.DataFrame(value)
-            file_path = f'./outputs/features/contrastive_rank_{key}.csv'
-            
-            df['id'] = ids
-            df['label'] = labels
-            df['name'] = imgNames
-            df['positive'] = pos_imgs
-            df['negative'] = neg_imgs
-
-            file_exists = os.path.exists(file_path)
-
-            df.to_csv(file_path, mode='a', index=False, header=not file_exists)
-    '''
     
     def contrastive_loss(self, anchor, positive, negative):
         positive_similarity = F.cosine_similarity(anchor, positive)
@@ -216,8 +193,8 @@ class OralContrastiveClassifierModule(LightningModule):
 
         predictions = torch.argmax(y_hat, dim=1)
 
-        print(f"Predictions: {predictions}")
-        print(f"Labels: {labels}")
+        #print(f"Predictions: {predictions}")
+        #print(f"Labels: {labels}")
         
         self.log('test_accuracy', accuracy_score(labels, predictions), on_step=True, on_epoch=True, logger=True)
         self.log('recall', recall_score(labels, predictions, average='micro'), on_step=True, on_epoch=True, logger=True)
@@ -255,17 +232,17 @@ class OralContrastiveClassifierModule(LightningModule):
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
                 torch.nn.Flatten(1),
-                torch.nn.Linear(self.model.classifier[2].in_features, 64)
+                torch.nn.Linear(self.model.classifier[2].in_features, self.output_dim)
             )
         elif "ResNet" in weights_cls:
             self.model.fc = torch.nn.Sequential(
             torch.nn.Dropout(0.5),
-            torch.nn.Linear(self.model.fc.in_features, 64)
+            torch.nn.Linear(self.model.fc.in_features, self.output_dim)
         )
 
         self.model.lastLayer = torch.nn.Sequential(
                 torch.nn.ReLU(),
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(64, num_classes)
+                torch.nn.Linear(self.output_dim, num_classes)
             )
         

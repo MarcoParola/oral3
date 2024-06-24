@@ -3,25 +3,15 @@ import pytorch_lightning
 import omegaconf
 
 from sklearn.metrics import classification_report
-from src.data1.few_shot_classification.datamodule import OralFewShotDataModule
-from src.models.few_shot_classification import OralFewShotClassifierModule
-
 from src.data1.contrastive_classification.datamodule import OralContrastiveDataModule
+from src.data1.dino.datamodule import OralDinoDataModule
+from src.models.dino import OralDinoModule
 from src.models.cae import Autoencoder
 from src.data1.autoencoder.datamodule import OralAutoencoderDataModule
-from src.data1.masked_classification.datamodule import OralClassificationMaskedDataModule
-from src.data1.segmentation.datamodule import OralSegmentationDataModule
 from src.models.classification import OralClassifierModule
 from src.models.contrastive_classification import OralContrastiveClassifierModule
-from src.models.saliency_classification import OralSaliencyClassifierModule
 from src.data1.classification.datamodule import OralClassificationDataModule
 from src.data1.classification.dataset import OralClassificationDataset
-from src.data1.saliency_classification.datamodule import OralClassificationSaliencyDataModule
-from src.data1.saliency_classification.dataset import OralClassificationSaliencyDataset
-from src.models.segmentation import FcnSegmentationNet, DeeplabSegmentationNet
-from src.saliency.grad_cam import OralGradCam
-from src.saliency.lime import OralLime
-from src.saliency.shap import OralShap
 import hydra
 import os
 import tqdm
@@ -37,11 +27,6 @@ def predict(trainer, model, data, saliency_map_flag, task, classification_mode):
             predictions = trainer.predict(model, data)
             predictions = torch.cat(predictions, dim=0)
             predictions = torch.argmax(predictions, dim=1)
-            OralGradCam.generate_saliency_maps_grad_cam(model, data.test_dataloader(), predictions, classification_mode)
-            
-    elif task == 's' or task == 'segmentation':
-        trainer.test(model, data)
-
 
 @hydra.main(version_base=None, config_path="./config", config_name="config")
 def main(cfg):
@@ -80,7 +65,7 @@ def main(cfg):
 
     print (cfg.task)
 
-    if cfg.task == 'c' or cfg.task == 'classification' or cfg.task == 'f' or cfg.task == 'features':
+    if cfg.task == 'c' or cfg.task == 'classification':
         # whole classification
         if cfg.classification_mode == 'whole':
             # model
@@ -123,60 +108,7 @@ def main(cfg):
                 transform=img_tranform
             )
         
-        # few shot classification
-        elif cfg.classification_mode == 'few_shot':
-            model = OralFewShotClassifierModule.load_from_checkpoint(get_last_checkpoint(version))
-            model.eval()
-
-            # data
-            train_img_tranform, val_img_tranform, test_img_tranform, img_tranform = get_transformations(cfg)
-            data = OralFewShotDataModule(
-                train=cfg.dataset.train,
-                val=cfg.dataset.val,
-                test=cfg.dataset.test,
-                batch_size=cfg.train.batch_size,
-                train_transform=train_img_tranform,
-                val_transform=val_img_tranform,
-                test_transform=test_img_tranform,
-                transform=img_tranform
-            )
-        
-
-        elif cfg.classification_mode == 'saliency':
-            model = OralSaliencyClassifierModule.load_from_checkpoint(get_last_checkpoint(version))
-            model.eval()
-
-            # data
-            train_img_tranform, val_img_tranform, test_img_tranform, img_tranform = get_transformations(cfg)
-            data = OralClassificationSaliencyDataModule(
-                train=cfg.dataset.train,
-                val=cfg.dataset.val,
-                test=cfg.dataset.test,
-                batch_size=cfg.train.batch_size,
-                train_transform=train_img_tranform,
-                val_transform=val_img_tranform,
-                test_transform=test_img_tranform,
-                transform=img_tranform
-            )
-
-        elif cfg.classification_mode == 'masked':
-            model = OralClassifierModule.load_from_checkpoint(get_last_checkpoint(version))
-            model.eval()
-
-            train_img_tranform, val_img_tranform, test_img_tranform, img_tranform = get_transformations(cfg)
-            data = OralClassificationMaskedDataModule(
-                sgm_type=cfg.sgm_type,
-                segmenter=cfg.model_seg,
-                train=cfg.dataset.train,
-                val=cfg.dataset.val,
-                test=cfg.dataset.test,
-                batch_size=cfg.train.batch_size,
-                train_transform=train_img_tranform,
-                val_transform=val_img_tranform,
-                test_transform=test_img_tranform,
-                transform=img_tranform
-            )
-
+        # autoencoder classification
         elif cfg.classification_mode == 'cae':
             model = Autoencoder.load_from_checkpoint(get_last_checkpoint(version))
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -194,17 +126,17 @@ def main(cfg):
                 test_transform=test_img_tranform,
                 transform=img_tranform
             )
-        
-        '''# classification with knn
-        elif cfg.classification_mode == 'knn':
-            model = OralClassifierModuleKNN.load_from_checkpoint(get_last_checkpoint(version))
+
+        # dino classification
+        elif cfg.classification_mode == 'dino':
+            model = OralDinoModule.load_from_checkpoint(get_last_checkpoint(version))
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model.eval()
             model.to(device)
 
             # data
             train_img_tranform, val_img_tranform, test_img_tranform, img_tranform = get_transformations(cfg)
-            data = OralClassificationKNNDataModule(
+            data = OralDinoDataModule(
                 train=cfg.dataset.train,
                 val=cfg.dataset.val,
                 test=cfg.dataset.test,
@@ -214,33 +146,8 @@ def main(cfg):
                 test_transform=test_img_tranform,
                 transform=img_tranform
             )
-        '''
-
-    elif cfg.task == 's' or cfg.task == 'segmentation':
-        train_img_tranform, val_img_tranform, test_img_tranform, img_tranform = get_transformations(cfg)
-        data = OralSegmentationDataModule(
-            train=cfg.dataset.train,
-            val=cfg.dataset.val,
-            test=cfg.dataset.test,
-            batch_size=cfg.train.batch_size,
-            train_transform=train_img_tranform,
-            val_transform=val_img_tranform,
-            test_transform=test_img_tranform,
-            transform=img_tranform
-        )
-        if cfg.model_seg == 'fcn':
-            model = FcnSegmentationNet.load_from_checkpoint(get_last_checkpoint(version))
-            model.sgm_type = cfg.sgm_type
-        elif cfg.model_seg == 'deeplab':
-            model = DeeplabSegmentationNet.load_from_checkpoint(get_last_checkpoint(version))
-            model.sgm_type = cfg.sgm_type
-
-        model.eval()
-
+        
     predict(trainer, model, data, saliency_map_method, cfg.task, cfg.classification_mode)
-
-
-
 
 if __name__ == "__main__":
     main()

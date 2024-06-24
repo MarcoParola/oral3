@@ -5,9 +5,6 @@ import json
 from matplotlib import pyplot as plt
 from PIL import Image, ImageDraw
 
-from src.data1.saliency_classification.dataset import OralClassificationSaliencyDataset
-
-
 class OralClassificationDataset(torch.utils.data.Dataset):
     def __init__(self, images, transform=None):
         self.images = images
@@ -34,8 +31,6 @@ class OralClassificationDataset(torch.utils.data.Dataset):
         image = self.dataset["images"][idx] 
         annotation = self.annotations[image["id"]]
         
-        #print image id
-        #print("image id", image["id"])
         image_id = image["id"]
         image_name = image["file_name"]
         
@@ -48,46 +43,3 @@ class OralClassificationDataset(torch.utils.data.Dataset):
         category = self.categories[annotation["category_id"]]
 
         return image, category, image_id, image_name
-
-
-if __name__ == "__main__":
-    import torchvision
-
-    '''
-    dataset_cropped = OralClassificationDataset(
-        "data/train.json", True,
-        transform=transforms.Compose([
-            transforms.Resize((512, 512), antialias=True),
-            transforms.ToTensor()
-        ])
-    )
-    image_cropped, mask = dataset_cropped.__getitem__(5)
-    plt.imshow(image_cropped.permute(1, 2, 0))
-    plt.savefig("cropped_test.png")
-
-
-    dataset_not_cropped = OralClassificationDataset(
-        "data/train.json", False,
-        transform=transforms.Compose([
-            transforms.Resize((512, 512), antialias=True),
-            transforms.ToTensor()
-        ])
-    )
-    image_not_cropped, mask = dataset_not_cropped.__getitem__(5)
-    plt.imshow(image_not_cropped.permute(1, 2, 0))
-    plt.savefig("not_cropped_test.png")
-    #torchvision.utils.save_image(dataset[1][0], "test.png")
-    '''
-    dataset = OralClassificationSaliencyDataset(
-        "data/train.json", False,
-        transform=transforms.Compose([
-            transforms.Resize((512, 512), antialias=True),
-            transforms.ToTensor()
-        ])
-    )
-    image, label, mask = dataset.__getitem__(0)
-    plt.imshow(image.permute(1, 2, 0))
-    plt.show()
-    plt.imshow(mask.permute(1, 2, 0), cmap='gray', alpha=0.5)
-    plt.show()
-    print(label)

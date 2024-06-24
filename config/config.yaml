@@ -8,37 +8,28 @@ model:
   num_classes: 3
   name: resnet50
   weights: ResNet50_Weights.IMAGENET1K_V2
+  output_dim: 64
 
 model_seg: 'fcn'
 sgm_type: 'soft'
 
 dataset:
-  train: ./data/contrastive_train_min.json
-  val: ./data/contrastive_val_min.json
-  test: ./data/contrastive_test_min.json
-  #train: ./data/train.json
-  #val: ./data/val.json
-  #test: ./data/test.json
-  #train: ./data/fsl_train.json
-  #val: ./data/fsl_val.json
-  #test: ./data/fsl_test.json
-  #train: ./data/cae_train.json
-  #val: ./data/cae_val.json
-  #test: ./data/cae_test.json
-  #test: ./data/few_shot_dataset.json
+  #train: ./data/train_min.json
+  #val: ./data/val_min.json
+  #test: ./data/test_min.json
+  train: ./data/train.json
+  val: ./data/val.json
+  test: ./data/test.json
   resize: 224
 
 train:
   save_path: "./models/"
   seed: -1
   batch_size: 32
-  #batch_size: 1
   lr: 0.000001
-  #lr: 0.001
-  accelerator: "cpu"
   devices: 1
-  max_epochs: 200
-  patience: 20
+  max_epochs: 1000
+  patience: 10
 
 
 generate_map: "None"
@@ -60,6 +51,6 @@ ae:
 
 wandb:
   wandb:
-  entity:
-  project: oral3
+  entity: simonelandi99
+  project: improve_classifier_via_segment 
   tag: ""

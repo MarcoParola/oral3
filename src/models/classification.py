@@ -21,7 +21,7 @@ from torchvision.models.feature_extraction import create_feature_extractor
 
 class OralClassifierModule(LightningModule):
 
-    def __init__(self, weights, num_classes, lr=10e-3, max_epochs=150):
+    def __init__(self, weights, num_classes, output_dim, lr=10e-3, max_epochs=150):
         super().__init__()
         self.current_labels = None
         self.current_ids = None
@@ -32,6 +32,7 @@ class OralClassifierModule(LightningModule):
         weights_name = weights.split(".")[1]
         self.model_name = weights.split("_Weights")[0].lower()
         self.num_classes = num_classes
+        self.output_dim = output_dim
         weights_cls = getattr(torchvision.models, weights_cls)
         weights = getattr(weights_cls, weights_name)
         self.model = getattr(torchvision.models, self.model_name)(weights=weights)
@@ -43,12 +44,6 @@ class OralClassifierModule(LightningModule):
         self.total_labels = None
         self.classes = ['Neoplastic', 'Aphthous', 'Traumatic']
 
-        #for name, module in self.named_children():
-        #    print(name)
-        #    print(module)
-
-        # feature extraction (last layer removed)
-        #self.feature_extractor = torch.nn.Sequential(*list(self.model.children())[:-1])
         name = str(weights_cls)
         if "SqueezeNet1_1" in name or "SqueezeNet1_0" in name:
             self.feature_extractor = create_feature_extractor(self.model, ['classifier'])
@@ -62,67 +57,33 @@ class OralClassifierModule(LightningModule):
 
 
     def forward(self, x):
-        #print("Forward")
-        # feature extraction
-        #features = self.feature_extractor(x)
-        #self.save_features_to_csv(features, self.current_ids, self.current_labels, self.current_imgName)
-        print(f"Input shape: {x.shape}")
         x = self.model(x)
-        print(f"Output shape: {x.shape}")
-
         return x
     
     def extract_features(self, x):
         return self.feature_extractor(x)
 
-    '''def save_features_to_csv(self, features, ids, labels, names):
-        os.makedirs('./outputs/features', exist_ok=True)
-        for key, value in features.items():
-            # Assume each value in the dictionary is a tensor
-            value = value.view(value.size(0), -1).detach().numpy()
-            df = pd.DataFrame(value)
-            file_path = f'./outputs/features/{self.model_name}_{key}.csv'
-
-            # Add the ids and labels to the DataFrame
-            df['id'] = ids
-            df['label'] = labels
-            df['name'] = names
-
-            # Check if the file already exists
-            file_exists = os.path.exists(file_path)
-
-            # Write the DataFrame to CSV file
-            df.to_csv(file_path, mode='a', index=False, header=not file_exists)
-    '''
-
     def training_step(self, batch, batch_idx):
         return self._common_step(batch, batch_idx, "train")
 
     def validation_step(self, batch, batch_idx):
-        #print("Validation step")
         self._common_step(batch, batch_idx, "val")
 
     def test_step(self, batch, batch_idx):
-        #print("Test step")
-
         imgs, labels, ids, names = batch
         self.current_labels = labels
         self.current_ids = ids
         self.current_imgName = names
 
         self.eval()
-        #imgs, labels = batch
         x = self.preprocess(imgs)
         y_hat = self(x)
 
-        #print("Output shape:", y_hat.shape)
-        #print("Labels shape:", labels.shape)
-
         predictions = torch.argmax(y_hat, dim=1)
 
-        # Stampa le etichette e le predizioni
-        print("Labels:", labels)
-        print("Predictions:", predictions)
+        # print labels and predictions
+        #print("Labels:", labels)
+        #print("Predictions:", predictions)
         
         self.log('test_accuracy', accuracy_score(labels, predictions), on_step=True, on_epoch=True, logger=True)
         self.log('recall', recall_score(labels, predictions, average='micro'), on_step=True, on_epoch=True, logger=True)
@@ -148,8 +109,6 @@ class OralClassifierModule(LightningModule):
                                              classes=self.classes, writer=tb_logger)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=None):
-        #print("Predict step")
-        #img, label = batch
         img, label, id, name = batch
         x = self.preprocess(img)
         return self(x)
@@ -167,7 +126,6 @@ class OralClassifierModule(LightningModule):
     def _common_step(self, batch, batch_idx, stage):
         torch.set_grad_enabled(True)
 
-        #imgs, labels = batch
         imgs, labels, ids, names = batch
         x = self.preprocess(imgs)
         y_hat = self(x)
@@ -211,56 +169,55 @@ class OralClassifierModule(LightningModule):
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
                 torch.nn.Flatten(1),
-                torch.nn.Linear(self.model.classifier[2].in_features, 64)
+                torch.nn.Linear(self.model.classifier[2].in_features, self.output_dim)
             )
         elif "EfficientNet" in weights_cls:
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(self.model.classifier[1].in_features, 64)
+                torch.nn.Linear(self.model.classifier[1].in_features, self.output_dim)
             )
         elif "MobileNet" in weights_cls or "VGG" in weights_cls:
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(self.model.classifier[0].in_features, 64)
+                torch.nn.Linear(self.model.classifier[0].in_features, self.output_dim)
             )
         elif "DenseNet" in weights_cls:
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(self.model.classifier.in_features, 64)
+                torch.nn.Linear(self.model.classifier.in_features, self.output_dim)
             )
         elif "MaxVit" in weights_cls:
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
                 torch.nn.AdaptiveAvgPool2d(1),
                 torch.nn.Flatten(),
-                torch.nn.Linear(self.model.classifier[5].in_features, 64)
+                torch.nn.Linear(self.model.classifier[5].in_features, self.output_dim)
             )
         elif "ResNet" in weights_cls or "RegNet" in weights_cls or "GoogLeNet" in weights_cls:
             self.model.fc = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(self.model.fc.in_features, 64)
+                torch.nn.Linear(self.model.fc.in_features, self.output_dim)
             )
         elif "Swin" in weights_cls:
             self.model.head = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(self.model.head.in_features, 64)
+                torch.nn.Linear(self.model.head.in_features, self.output_dim)
             )
         elif "ViT" in weights_cls:
             self.model.heads = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(self.model.hidden_dim, 64)
+                torch.nn.Linear(self.model.hidden_dim, self.output_dim)
             )
         elif "SqueezeNet1_1" in weights_cls or "SqueezeNet1_0" in weights_cls:
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
-                #torch.nn.Conv2d(512, num_classes, kernel_size=(1, 1), stride=(1, 1))
-                torch.nn.Conv2d(512, 64, kernel_size=(1, 1), stride=(1, 1)),
+                torch.nn.Conv2d(512, self.output_dim, kernel_size=(1, 1), stride=(1, 1)),
                 torch.nn.AvgPool2d(kernel_size=13, stride=1, padding=0)
             )
 
         self.model.lastLayer = torch.nn.Sequential(
                 torch.nn.ReLU(),
                 torch.nn.Dropout(0.5),
-                torch.nn.Linear(64, num_classes)
+                torch.nn.Linear(self.output_dim, num_classes)
             )
 

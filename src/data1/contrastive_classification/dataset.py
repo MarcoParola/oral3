@@ -31,8 +31,6 @@ class OralContrastiveDataset(torch.utils.data.Dataset):
         image = self.dataset["images"][idx] 
         annotation = self.annotations[image["id"]]
         
-        #print image id
-        #print("image id", image["id"])
         image_id = image["id"]
         image_name = image["file_name"]
         if "positive" not in image or "negative" not in image:
@@ -83,31 +81,3 @@ class OralContrastiveDataset(torch.utils.data.Dataset):
         category = self.categories[annotation["category_id"]]
 
         return image, category, image_id, image_name, positive, negative, positive_image, negative_image
-
-if __name__ == "__main__":
-    import torchvision
-
-    dataset = OralContrastiveDataset(
-        "data/contrastive_train.json",
-        transform=transforms.Compose([
-            transforms.Resize((512, 512), antialias=True),
-            transforms.ToTensor()
-        ])
-    )
-
-    image, category, image_id, image_name, positive, negative, positive_image, negative_image = dataset.__getitem__(0)
-    plt.imshow(image.permute(1, 2, 0))
-    plt.show()
-
-    plt.imshow(positive_image.permute(1, 2, 0))
-    plt.show()
-
-    plt.imshow(negative_image.permute(1, 2, 0))
-    plt.show()
-
-    # Stampa le informazioni
-    print("category", category)
-    print("image_id", image_id)
-    print("image_name", image_name)
-    print("positive", positive)
-    print("negative", negative)
