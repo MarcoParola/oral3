@@ -28,6 +28,7 @@ class OralVICRegModule(pl.LightningModule):
         self.projection_head = VICRegProjectionHead(
             input_dim=512,
             hidden_dim=2048,
+            #hidden_dim=8192,
             output_dim=self.output_dim,
             num_layers=2,
         )
@@ -65,4 +66,5 @@ class OralVICRegModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.parameters(), lr=self.hparams.lr)
-        return optim
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, self.hparams.max_epochs)
+        return [optim], [scheduler]

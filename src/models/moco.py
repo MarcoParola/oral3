@@ -16,11 +16,12 @@ class OralMOCOModule(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.num_classes = num_classes
-        self.output_dim = 128
+        self.output_dim = 64
         
         resnet = torchvision.models.resnet18()
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
         self.projection_head = MoCoProjectionHead(512, 512, self.output_dim)
+        #self.projection_head = MoCoProjectionHead(512, 4096, self.output_dim, num_layers=3, batch_norm=True)
 
         self.backbone_momentum = copy.deepcopy(self.backbone)
         self.projection_head_momentum = copy.deepcopy(self.projection_head)

@@ -27,7 +27,7 @@ class OralMAEModule(pl.LightningModule):
             patch_size=self.patch_size,
             embed_dim=vit.embed_dim,
             decoder_embed_dim=decoder_dim,
-            decoder_depth=1,
+            decoder_depth=8,
             decoder_num_heads=16,
             mlp_ratio=4.0,
             proj_drop_rate=0.0,
@@ -132,4 +132,6 @@ class OralMAEModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optim = torch.optim.AdamW(self.parameters(), lr=self.hparams.lr)
-        return optim
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, self.hparams.max_epochs)
+        return [optim], [scheduler]
+

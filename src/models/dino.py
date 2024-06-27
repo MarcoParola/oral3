@@ -12,10 +12,6 @@ import gc
 from PIL import Image
 import torchvision.transforms.functional as F
 
-def free_memory():
-    gc.collect()
-    torch.cuda.empty_cache()
-
 class OralDinoModule(pl.LightningModule):
     def __init__(self, weights, num_classes, output_dim, lr=1e-4, max_epochs=100):
         super().__init__()
@@ -30,9 +26,11 @@ class OralDinoModule(pl.LightningModule):
         # Student and teacher backbones and heads
         self.student_backbone = backbone
         self.student_head = DINOProjectionHead(input_dim, 512, 64, output_dim, freeze_last_layer=1)
+        #self.student_head = DINOProjectionHead(input_dim, 2048, 256, self.output_dim, freeze_last_layer=1)
         
         self.teacher_backbone = copy.deepcopy(backbone)
         self.teacher_head = DINOProjectionHead(input_dim, 512, 64, output_dim)
+        #self.teacher_head = DINOProjectionHead(input_dim, 2048, 256, self.output_dim)
         
         # Deactivate gradients for teacher model
         deactivate_requires_grad(self.teacher_backbone)
@@ -95,4 +93,5 @@ class OralDinoModule(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
-        return optimizer
+        shceduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self.hparams.max_epochs)
+        return [optimizer], [shceduler]
