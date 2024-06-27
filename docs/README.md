@@ -62,11 +62,13 @@ The following models are available for SL in the case of pure DL:
 - SqueezeNet
 - Vit_b
 - Swin S
+
 Classification on the whole dataset:
 - Train CNN classifier on the whole dataset
 - Test CNN classifier on the whole dataset
 - Feature extraction on the anchor test and the test set
 - KNN fit on the anchor set and KNN test on the test set
+
 Specify the pre-trained classification model by setting `model.weights`.`classification_mode=whole` specifies we are solving the classification without exploiting the segment information.
 ```
 # TRAIN classifier on whole images
@@ -94,6 +96,7 @@ Classification on the contrastive dataset:
 - Test CNN classifier on the contrastive dataset
 - Feature extraction on the anchor test and the test set
 - KNN fit on the anchor set and KNN test on the test set
+
 For this experiment, first it is necessary to generate the dataset, specifying the number of triplets `num_category` for each category.
 ```
 python scripts/prova_contrastive.py  --num_category 30 
@@ -139,10 +142,12 @@ The following models are available for SSL:
 - MAE
 - MoCo
 - VICReg
+
 Classification on the whole dataset:
 - Train on the whole dataset
 - Feature extraction on the anchor test and the test set
 - KNN fit on the anchor set and KNN test on the test set
+
 `classification_mode=cae` specifies we are solving the classification using the CAE model (options: cae, dino, mae, moco, vicreg).
 ```
 # TRAIN on whole images
