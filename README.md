@@ -3,7 +3,7 @@
 
 This GitHub repo for the design analysis of different Case-Based Reasoning (CBR) systems enhanced by Deep Learning (DL) to support oral cancer diagnosis.
 
-<img width="560" alt="intro" src="img/DL-CBR-scheme.drawio.png">
+<img width="560" alt="intro" src="img/DL-CBR-scheme-2.drawio.png">
 
 Two main DL strategies have been adopted for DL module design to get a feature extractor to be integrated in DL-CBR system:
 - Supervised Learning (SL)
@@ -18,8 +18,8 @@ Each of these strategies can rely on different loss function during the training
 | Vit_b      |  SL         | CrossEntropyLoss              |
 | Swin S     |   SL        | CrossEntropyLoss              |
 | TripletNet | SL          | ContrastiveLoss              |
-| Conv. AutoEncoder | SSL          | MSELoss              |
-| Dino      |  SSL         | DINOLoss              |
+| CAE | SSL          | MSELoss              |
+| DINO      |  SSL         | DINOLoss              |
 | MAE     |   SSL        | MSELoss              |
 | MoCo     |   SSL        | NTXentLoss              |
 | VICReg     |   SSL        | VICRegLoss              |
