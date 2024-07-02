@@ -26,11 +26,9 @@ class OralDinoModule(pl.LightningModule):
         # Student and teacher backbones and heads
         self.student_backbone = backbone
         self.student_head = DINOProjectionHead(input_dim, 512, 64, output_dim, freeze_last_layer=1)
-        #self.student_head = DINOProjectionHead(input_dim, 2048, 256, self.output_dim, freeze_last_layer=1)
         
         self.teacher_backbone = copy.deepcopy(backbone)
         self.teacher_head = DINOProjectionHead(input_dim, 512, 64, output_dim)
-        #self.teacher_head = DINOProjectionHead(input_dim, 2048, 256, self.output_dim)
         
         # Deactivate gradients for teacher model
         deactivate_requires_grad(self.teacher_backbone)

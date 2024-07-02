@@ -23,12 +23,11 @@ class OralVICRegModule(pl.LightningModule):
         self.num_classes = num_classes
         self.output_dim = output_dim
         
-        resnet = torchvision.models.resnet18()
+        resnet = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
         self.backbone = nn.Sequential(*list(resnet.children())[:-1])
         self.projection_head = VICRegProjectionHead(
             input_dim=512,
             hidden_dim=2048,
-            #hidden_dim=8192,
             output_dim=self.output_dim,
             num_layers=2,
         )

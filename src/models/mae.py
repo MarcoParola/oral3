@@ -1,7 +1,7 @@
 import pytorch_lightning as pl
 import torch
 import torchvision
-from timm.models.vision_transformer import vit_base_patch32_224
+from timm.models.vision_transformer import vit_base_patch32_224, vit_base_patch16_224, vit_base_patch8_224
 from torch import nn
 import gc
 
@@ -17,8 +17,8 @@ class OralMAEModule(pl.LightningModule):
         self.output_dim = output_dim
         
         decoder_dim = 512
-        vit = vit_base_patch32_224()
-        self.mask_ratio = 1.0
+        vit = vit_base_patch16_224(pretrained=True)
+        self.mask_ratio = 0.75
         self.patch_size = vit.patch_embed.patch_size[0]
         self.backbone = MaskedVisionTransformerTIMM(vit=vit)
         self.sequence_length = self.backbone.sequence_length
