@@ -3,10 +3,12 @@ import hydra
 import os
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
-from sklearn.model_selection import StratifiedKFold, train_test_split, GridSearchCV
+from sklearn.model_selection import StratifiedKFold, train_test_split, GridSearchCV, cross_val_predict
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 from src.utils import load_features
+import pandas as pd
+import numpy as np
 
 def plot_clusters(features, labels, predictions):
     tsne = TSNE(n_components=2, random_state=0, perplexity=5)
@@ -19,6 +21,28 @@ def plot_clusters(features, labels, predictions):
     plt.title('t-SNE Visualization of KNN Predictions')
     plt.show()
 
+def plot_heatmap(df, title):
+    n_neighbors = sorted(df['n_neighbors'].unique())
+    metrics = sorted(df['metric'].unique())
+    heatmap_data = np.zeros((len(n_neighbors), len(metrics)))
+
+    for i, nn in enumerate(n_neighbors):
+        for j, metric in enumerate(metrics):
+            accuracy = df[(df['n_neighbors'] == nn) & (df['metric'] == metric)]['Test Accuracy'].values
+            if len(accuracy) > 0:
+                heatmap_data[i, j] = accuracy[0]
+
+    plt.imshow(heatmap_data, cmap='Greens', aspect='auto')
+    plt.title(title)
+    plt.xlabel('Metric')
+    plt.ylabel('n_neighbors')
+    plt.xticks(np.arange(len(metrics)), metrics)
+    plt.yticks(np.arange(len(n_neighbors)), n_neighbors)
+    plt.colorbar(label='Test Accuracy')
+    for i in range(len(n_neighbors)):
+        for j in range(len(metrics)):
+            plt.text(j, i, f'{heatmap_data[i, j]:.2f}', ha='center', va='center', color='black')
+
 @hydra.main(config_path='./config', config_name='config')
 def main(cfg):
 
@@ -26,8 +50,8 @@ def main(cfg):
     orig_cwd = hydra.utils.get_original_cwd()
     
     # Usa il percorso assoluto combinato con la directory originale
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae')
+    features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae')
+    features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae_bbox')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae_bbox')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/convnext')
@@ -50,10 +74,10 @@ def main(cfg):
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive450')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/dino')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/dino')
-    features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/vicreg')
-    features_path_test = os.path.join(orig_cwd, 'outputs/features/test/vicreg')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/mae')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/mae')
+    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/vicreg')
+    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/vicreg')
+    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/maee')
+    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/maee')
     #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/moco')
     #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/moco')
 
@@ -94,8 +118,64 @@ def main(cfg):
 
     print(f'Best parameters found: {best_params}')
 
-    # Make predictions with the best model
-    y_pred = best_knn.predict(X_test)
+    #-----------------------------------------
+    # Initialize variables to track the best parameters and corresponding accuracy
+    best_params_test_accuracy = None
+    best_test_accuracy = 0
+
+    # Initialize lists to store all parameters and test accuracies
+    all_params = []
+    all_test_accuracies = []
+
+    # Display all combinations tested with their respective test accuracies
+    print("All combinations of parameters and their test accuracy scores:")
+    for params in grid_search.cv_results_['params']:
+        # Use the trained model to predict the test set
+        knn.set_params(**params)
+        knn.fit(X_train, y_train)
+        y_pred_test = knn.predict(X_test)
+        accuracy_test = accuracy_score(y_test, y_pred_test)
+        print(f'Params: {params}, Test Accuracy: {accuracy_test:.4f}')
+
+        # save the combination of parameters and their test accuracy
+        all_params.append(params)
+        all_test_accuracies.append(accuracy_test)
+        
+        # Track the best parameters based on test accuracy
+        if accuracy_test > best_test_accuracy:
+            best_test_accuracy = accuracy_test
+            best_params_test_accuracy = params
+    
+    # Create a DataFrame to hold all test accuracies and parameters
+    df = pd.DataFrame({
+        'Test Accuracy': all_test_accuracies,
+        'n_neighbors': [params['n_neighbors'] for params in all_params],
+        'metric': [params['metric'] for params in all_params],
+        'weights': [params['weights'] for params in all_params]
+    })
+
+    # Create separate DataFrames for 'uniform' and 'distance' weights
+    df_uniform = df[df['weights'] == 'uniform']
+    df_distance = df[df['weights'] == 'distance']
+
+    # Create heatmap for 'uniform' weights
+    plt.figure(figsize=(10, 8))
+    plot_heatmap(df_uniform, 'Uniform Weights')
+
+    # Create heatmap for 'distance' weights
+    plt.figure(figsize=(10, 8))
+    plot_heatmap(df_distance, 'Distance Weights')
+
+    plt.show()
+
+    #-----------------------------------------
+
+    print(f'Best parameters based on test accuracy: {best_params_test_accuracy}')
+
+    # Use the best parameters found on test set to calculate evaluation metrics
+    knn.set_params(**best_params_test_accuracy)
+    knn.fit(X_train, y_train)
+    y_pred = knn.predict(X_test)
 
     # Compute evaluation metrics
     accuracy = accuracy_score(y_test, y_pred)
