@@ -70,7 +70,7 @@ class OralMOCOModule(pl.LightningModule):
         return self._common_step(batch, batch_idx, "test")
 
     def configure_optimizers(self):
-        optim = torch.optim.SGD(self.parameters(), lr=self.hparams.lr)
+        optim = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
         shceduler = torch.optim.lr_scheduler.CosineAnnealingLR(optim, self.hparams.max_epochs)
         return [optim], [shceduler]
         #return optim

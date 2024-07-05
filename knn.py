@@ -9,6 +9,7 @@ from sklearn.manifold import TSNE
 from src.utils import load_features
 import pandas as pd
 import numpy as np
+import seaborn as sns
 
 def plot_clusters(features, labels, predictions):
     tsne = TSNE(n_components=2, random_state=0, perplexity=5)
@@ -50,37 +51,9 @@ def main(cfg):
     orig_cwd = hydra.utils.get_original_cwd()
     
     # Usa il percorso assoluto combinato con la directory originale
-    features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae')
-    features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/cae_bbox')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/cae_bbox')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/convnext')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/convnext')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/vit')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/vit')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/swin')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/swin')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/squeeze')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/squeeze')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive90')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive90')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive180')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive180')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive270')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive270')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive360')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive360')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/contrastive450')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/contrastive450')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/dino')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/dino')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/vicreg')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/vicreg')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/maee')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/maee')
-    #features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/moco')
-    #features_path_test = os.path.join(orig_cwd, 'outputs/features/test/moco')
-
+    features_path_anchor = os.path.join(orig_cwd, 'outputs/features/anchor/swin')
+    features_path_test = os.path.join(orig_cwd, 'outputs/features/test/swin')
+    
     features_train, labels_train = load_features(features_path_anchor)
     features_test, labels_test = load_features(features_path_test)
     
@@ -189,6 +162,23 @@ def main(cfg):
     print(f'Recall: {recall}')
     print(f'F1-Score: {f1}')
     print(f'Confusion Matrix:\n {conf_matrix}')
+
+    #-----------------------------------------
+    # Mostra la matrice di confusione come heatmap con matplotlib
+    plt.figure(figsize=(10, 8))
+    plt.imshow(conf_matrix, cmap='Blues', aspect='auto')
+    plt.title('Confusion Matrix')
+    plt.colorbar()
+    plt.xticks(np.arange(len(np.unique(y_test))), np.unique(y_test), rotation=45)
+    plt.yticks(np.arange(len(np.unique(y_test))), np.unique(y_test))
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    for i in range(len(np.unique(y_test))):
+        for j in range(len(np.unique(y_test))):
+            plt.text(j, i, str(conf_matrix[i, j]), ha='center', va='center', color='black')
+    plt.tight_layout()
+    plt.show()
+    #-----------------------------------------
 
     features = torch.cat((torch.tensor(X_train), torch.tensor(X_test)), 0)
     labels = torch.cat((torch.tensor(y_train), torch.tensor(y_test)), 0)
