@@ -13,16 +13,16 @@ Each of these strategies can rely on different loss function during the training
 
 | Model      | DL strategy | loss function |
 |------------|-------------|---------------|
-| ConvNext   | SL          | CrossEntropyLoss              |
-| SqueezeNet | SL          | CrossEntropyLoss              |
-| Vit_b      |  SL         | CrossEntropyLoss              |
-| Swin S     |   SL        | CrossEntropyLoss              |
-| TripletNet | SL          | ContrastiveLoss              |
-| CAE | SSL          | MSELoss              |
-| DINO      |  SSL         | DINOLoss              |
-| MAE     |   SSL        | MSELoss              |
-| MoCo     |   SSL        | NTXentLoss              |
-| VICReg     |   SSL        | VICRegLoss              |
+| ConvNext   | SL          | Classification Loss              |
+| SqueezeNet | SL          | Classification Loss              |
+| Vit_b      |  SL         | Classification Loss              |
+| Swin S     |   SL        | Classification Loss              |
+| TripletNet | SL          | Contrastive Loss              |
+| CAE | SSL          | Reconstruction Loss              |
+| DINO      |  SSL         | Distillation Loss              |
+| MAE     |   SSL        | Masked Reconstruction Loss              |
+| MoCo     |   SSL        | NTXent Loss              |
+| VICReg     |   SSL        | VICReg Loss              |
 
 
 
