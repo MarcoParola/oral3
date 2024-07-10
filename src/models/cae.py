@@ -47,14 +47,14 @@ class Autoencoder(pl.LightningModule):
             nn.BatchNorm2d(1024),
             nn.LeakyReLU(True),
             # input 1024 x 4 x 4
-            nn.Conv2d(1024, 224, 4, 1, 0, bias=False), # -> 224 x 1 x 1
-            nn.BatchNorm2d(224),
+            nn.Conv2d(1024, self.output_dim, 4, 1, 0, bias=False), # -> 64 x 1 x 1
+            nn.BatchNorm2d(self.output_dim),
             nn.LeakyReLU(True)
         )
 
         self.decoder = nn.Sequential(
-            # input 224 x 1 x 1
-            nn.ConvTranspose2d(224, 1024, 4, 1, 0, bias=False), # -> 1024 x 4 x 4
+            # input 64 x 1 x 1
+            nn.ConvTranspose2d(self.output_dim, 1024, 4, 1, 0, bias=False), # -> 1024 x 4 x 4
             nn.BatchNorm2d(1024),
             nn.ReLU(True),
             # input 1024 x 4 x 4
