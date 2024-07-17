@@ -3,7 +3,7 @@
 
 This GitHub repo for the design analysis of different Case-Based Reasoning (CBR) systems enhanced by Deep Learning (DL) to support oral cancer diagnosis.
 
-<img width="560" alt="intro" src="img/DL-CBR-scheme-2.drawio.png">
+<img width="560" alt="intro" src="img/scheme.png">
 
 Two main DL strategies have been adopted for DL module design to get a feature extractor to be integrated in DL-CBR system:
 - Supervised Learning (SL)
