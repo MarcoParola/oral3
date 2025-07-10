@@ -1,56 +1,83 @@
+# =================================================================
+# ===                      CONFIGURATION FILE                   ===
+# =================================================================
+
+# Global Task Configuration
+# Used by: train.py, test.py
 task: 'classification'
 classification_mode: 'whole'
 
-# models and weights here: https://pytorch.org/vision/stable/models.html
-load_model: shufflenet_v2_x1_0
-
+# Model Configuration
+# Used by: train.py, test.py
+# -----------------------------------------------------------------
+# To switch models, just comment/uncomment the respective block below.
+# The 'run_name' and 'save_path' will update automatically.
+# The number of classes is now discovered automatically from the dataset.
+# -----------------------------------------------------------------
 model:
-  num_classes: 3
+  output_dim: 64 # Dimension of the feature vector before the final classification layer
+
+  # --- Vision Transformer (ViT) Configuration ---
+  # name: vit_b_16
+  # weights: ViT_B_16_Weights.IMAGENET1K_V1
+
+  # --- ResNet50 Configuration  ---
   name: resnet50
-  weights: ResNet50_Weights.IMAGENET1K_V2
-  output_dim: 64
+  weights: ResNet50_Weights.IMAGENET1K_V1
 
-model_seg: 'fcn'
-sgm_type: 'soft'
-
+# Dataset Configuration
 dataset:
-  #train: ./data/train_min.json
-  #val: ./data/val_min.json
-  #test: ./data/test_min.json
-  train: ./data/train.json
-  val: ./data/val.json
-  test: ./data/test.json
-  resize: 224
+  data_format: 'json' # Options: 'directory', 'json'
+  base_path: ./data
+  dataset_name: PhotoMOCI # Options: OC_DATASET_2, PhotoMOCI
+  augmentation_type: aug_lora_10% # Options: no_aug, aug_stylegan_10.0%, aug_lora_10%
+  resize: 224 # 224 is a standard size for both ViT and ResNet
 
+# Training Parameters
 train:
-  save_path: "./models/"
-  seed: -1
-  batch_size: 32
-  lr: 0.000001
+  save_path: "./models/${model.name}_${dataset.dataset_name}_${dataset.augmentation_type}"
+  seed: 42
+  batch_size: 64
+  lr: 0.00001
   devices: 1
-  max_epochs: 1000
+  max_epochs: 100
+  num_workers: 4
+  
   patience: 10
+  monitor: 'val/loss' 
+  mode: 'min' 
 
+  save_top_k: 1 
 
-generate_map: "None"
+  log_every_n_steps: 1 # Log every 10 steps
 
-checkpoint:
-  version: 0
-
-log:  
-  path: "./logs/"
+# Logging Parameters
+# Used by both train.py and test.py, but test.py overrides the version.
+log:
+  path: "./logs/${dataset.dataset_name}_${dataset.augmentation_type}"
   wandb: True
-  tensorboard: False
+  tensorboard: True
 
-# Configuration parameters for the autoencoder
-ae:
-  latent_dim: 512
-  enc_feature_maps: 32
-  dec_feature_maps: 32
-  n_channels: 3
-
+# Weights & Biases (Wandb) Configuration
+# Used by both train.py and test.py.
 wandb:
-  wandb:
-  entity: simonelandi99
-  project: improve_classifier_via_segment 
+  entity: f-nocella1-university-of-pisa
+  project: ORAL3_classification
   tag: ""
+  run_name: '${model.name}_${dataset.dataset_name}_${dataset.augmentation_type}'
+
+hydra:
+  run:
+    dir: logs/${task}/${model.name}/${dataset.dataset_name}/${now:%Y-%m-%d_%H-%M-%S}
+
+# =================================================================
+# ===                   TEST-ONLY PARAMETERS                    ===
+# =================================================================
+# These parameters are primarily for the test.py script.
+# They are meant to be overridden from the command line.
+
+# Used by test.py to generate saliency maps.
+generate_map: "None" # Options: "None", "grad-cam"
+
+checkpoint_base_dir: 'logs/classification/resnet50/PhotoMOCI/2025-07-07_18-34-57/' # Relative path to the checkpoint directory. example: 'logs/classification/resnet50/PhotoMOCI/2025-07-03_09-32-06/'
+checkpoint_file_name: null

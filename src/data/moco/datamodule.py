@@ -3,10 +3,10 @@ import hydra
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
 
-from src.data1.mae.dataset import OralMAEDataset
+from src.data.moco.dataset import OralMOCODataset
 
 
-class OralMAEDataModule(LightningDataModule):
+class OralMOCODataModule(LightningDataModule):
     def __init__(self, train, val, test, batch_size=16, train_transform=None, val_transform=None,
                  test_transform=None, transform=None):
         super().__init__()
@@ -17,9 +17,9 @@ class OralMAEDataModule(LightningDataModule):
         if val_transform is None:
             val_transform = transform
 
-        self.train_dataset = OralMAEDataset(train, transform=train_transform)
-        self.val_dataset = OralMAEDataset(val, transform=val_transform)
-        self.test_dataset = OralMAEDataset(test, transform=test_transform)
+        self.train_dataset = OralMOCODataset(train, transform=train_transform)
+        self.val_dataset = OralMOCODataset(val, transform=val_transform)
+        self.test_dataset = OralMOCODataset(test, transform=test_transform)
         self.batch_size = batch_size
 
     def train_dataloader(self):

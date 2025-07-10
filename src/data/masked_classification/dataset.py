@@ -97,16 +97,14 @@ class OralClassificationMaskedDataset(torch.utils.data.Dataset):
 
 
 if __name__ == "__main__":
-    import torchvision
-    import torchvision.transforms as transforms
-
     import torch
+    from torchvision.transforms import v2
 
     dataset = OralClassificationMaskedDataset(
         'fcn', "data/train.json",
-        transform=transforms.Compose([
-            transforms.Resize((224, 224), antialias=True),
-            transforms.ToTensor()
+        transform=v2.Compose([
+            v2.Resize((224, 224), antialias=True),
+            v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)])
         ])
     )
     image_masked, label = dataset.__getitem__(8)

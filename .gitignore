@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+*.pdf
 # C extensions
 *.so
 
@@ -15,6 +17,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+libs/stylegan3/
 lib64/
 parts/
 sdist/
@@ -25,7 +28,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+libs/
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -165,7 +168,7 @@ output/
 wandb/
 __init__.py
 checkpoints/
-data/
+/data
 logs/
 outputs/
 lightning_logs/
@@ -174,3 +177,32 @@ wandb/
 *.log
 *.pth
 *.png
+
+
+data_augmentation/stable_diffusion/data/
+data_augmentation/stable_diffusion/outputs/
+data_augmentation/stable_diffusion/logs/
+data_augmentation/stable_diffusion/wandb/
+
+training-runs/stylegan/00000-stylegan3-r-no_aug_for_stylegan-gpus1-batch4-gamma8.2/training_options.json
+training-runs/stylegan/00000-stylegan3-r-no_aug_for_stylegan-gpus1-batch4-gamma8.2/stats.jsonl
+training-runs/stylegan/
+*.pkl
+libs/stylegan3
+OC_DATASET_2/
+*.ckpt
+script.py
+agumentation_train.ps1
+src/models/stable_diffusion_2/
+setup_cache_models.ps1
+augmentation_train_2.py
+config/augmentation_train_2.yaml
+BackupMethods.tex
+libs/stylegan3
+libs/stylegan3
+src/models/stable_diffusion_2.py
+
+config/infer.yaml
+config/offline_data_augmentation.yaml
+augmentation_inference.py
+data_augmentation_generator.py

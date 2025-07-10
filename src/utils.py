@@ -11,17 +11,63 @@ from sklearn.metrics import confusion_matrix, accuracy_score, recall_score, prec
 from sklearn.utils.multiclass import unique_labels
 from torch.utils.tensorboard import SummaryWriter
 from pytorch_lightning.loggers import TensorBoardLogger
+from torchvision.transforms import v2
 from torchvision.transforms.v2 import AutoAugmentPolicy, functional as F, InterpolationMode, Transform
 import wandb
+
+from datetime import datetime as dt
+from omegaconf import DictConfig
+
+
+def process_image_for_logging(img: torch.Tensor) -> torch.Tensor:
+    """
+    Converts a single image tensor (C, H, W) from VAE output range (approx -1 to 1)
+    to a displayable format (H, W, C) in uint8 [0, 255].
+    Handles potential NaN/Inf.
+    """
+    if img.ndim != 3 or img.shape[0] != 3:
+         logger.warning(f"process_image_for_logging received tensor with unexpected shape {img.shape}. Returning as is.")
+         # Potrebbe essere utile ritornare un tensore placeholder o sollevare un errore
+         return torch.zeros((img.shape[1], img.shape[2], 3), dtype=torch.uint8) if img.ndim==3 else torch.zeros((256, 256, 3), dtype=torch.uint8)
+
+
+    # Check for non-finite values
+    if not torch.all(torch.isfinite(img)):
+        logger.warning("Non-finite values detected in image tensor before processing. Clamping.")
+        img = torch.nan_to_num(img) # Replace NaN with 0, Inf with large finite numbers
+
+    # Permute from [C, H, W] to [H, W, C] for image processing/logging
+    img = img.permute(1, 2, 0)
+
+    # Safely normalize to [0, 1] range
+    img_min = torch.min(img)
+    img_max = torch.max(img)
+    img_range = img_max - img_min
+    if img_range > 1e-8: # Avoid division by zero if image is flat
+        img = (img - img_min) / img_range
+    else:
+        img = torch.zeros_like(img) # Handle flat image
+
+    # Clamp just in case normalization produced slightly out-of-bounds values
+    img = torch.clamp(img, 0.0, 1.0)
+
+    # Scale to 0-255 and convert to uint8
+    img = (img * 255).to(torch.uint8)
+    return img
+
 
 def get_early_stopping(cfg):
     """Returns an EarlyStopping callback
     cfg: hydra config
     """
+    patience = cfg.get('train.patience', 20)
+    monitor = cfg.get('train.monitor', 'val/loss')
+    mode = cfg.get('train.mode', 'min')
+
     early_stopping_callback = EarlyStopping(
-        monitor='val_loss',
-        mode='min',
-        patience=20,
+        monitor=monitor,
+        mode=mode,
+        patience=patience,
     )
     return early_stopping_callback
 
@@ -30,18 +76,18 @@ def get_transformations(cfg):
     """Returns the transformations for the dataset
     cfg: hydra config
     """
-    img_tranform = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(cfg.dataset.resize, antialias=True),
-        torchvision.transforms.CenterCrop(cfg.dataset.resize),
-        torchvision.transforms.ToTensor(),
+    img_tranform = v2.Compose([
+        v2.Resize(cfg.dataset.resize, antialias=True),
+        v2.CenterCrop(cfg.dataset.resize),
+        v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]),
     ])
     val_img_tranform, test_img_tranform = None, None
 
-    train_img_tranform = torchvision.transforms.Compose([
-        torchvision.transforms.Resize(cfg.dataset.resize, antialias=True),
-        torchvision.transforms.CenterCrop(cfg.dataset.resize),
-        torchvision.transforms.ToTensor(),
-        torchvision.transforms.RandomAffine(degrees=45, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=10),
+    train_img_tranform = v2.Compose([
+        v2.Resize(cfg.dataset.resize, antialias=True),
+        v2.CenterCrop(cfg.dataset.resize),
+        v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]),
+        v2.RandomAffine(degrees=45, translate=(0.1, 0.1), scale=(0.9, 1.1), shear=10),
     ])
 
     return train_img_tranform, val_img_tranform, test_img_tranform, img_tranform
@@ -182,4 +228,37 @@ def load_features(data_dir):
     labels = np.array(labels)
 
     return features, labels
+
+def get_experiment_dirs(cfg: DictConfig) -> tuple[str, str]:
+    """
+    Generates and creates the unique output directories for the current experiment run.
+
+    Args:
+        cfg (DictConfig): The Hydra configuration object containing experiment details.
+
+    Returns:
+        tuple[str, str]: A tuple containing:
+            - run_output_dir (str): The base directory for all outputs of this specific run.
+            - checkpoint_dir (str): The subdirectory specifically for model checkpoints.
+    """
+    task_type = cfg.get('task', 'classification')
+    model_name = cfg.model.get('name', 'resnet50')
+    dataset_name = cfg.dataset.get('dataset_name', 'PhotoMOCI')
+    
+    run_timestamp = dt.now().strftime('%Y-%m-%d_%H-%M-%S')
+    
+    # Construct the base directory for all outputs of this specific run.
+    # Example: logs/classification/resnet50/PhotoMOCI/2023-10-27_10-30-00
+    run_output_dir = os.path.join('logs', task_type, model_name, dataset_name, run_timestamp)
+    
+    # Create the base run directory if it does not already exist.
+    os.makedirs(run_output_dir, exist_ok=True)
+
+    # Define the subdirectory specifically for model checkpoints within the run's output.
+    checkpoint_dir = os.path.join(run_output_dir, "checkpoints")
+    
+    # Create the checkpoints directory if it does not already exist.
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    return run_output_dir, checkpoint_dir
 

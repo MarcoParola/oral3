@@ -115,17 +115,17 @@ class Autoencoder(pl.LightningModule):
         
 
 
-@hydra.main(config_path='../../config', config_name='config')
-def main(cfg):
+# @hydra.main(config_path='../../config', config_name='config')
+# def main(cfg):
 
-    model = Autoencoder(cfg.ae, cfg.train.lr, cfg.train.max_epochs)
+#     model = Autoencoder(cfg.ae, cfg.train.lr, cfg.train.max_epochs)
 
-    # define random input
-    x = torch.randn(2, 3, cfg.dataset.resize, cfg.dataset.resize)
+#     # define random input
+#     x = torch.randn(2, 3, cfg.dataset.resize, cfg.dataset.resize)
 
-    print('input shape:', x.shape)
-    print('output shape:', model(x).shape)
-    print('encoding shape:', model.extract_features(x).shape)
+#     print('input shape:', x.shape)
+#     print('output shape:', model(x).shape)
+#     print('encoding shape:', model.extract_features(x).shape)
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

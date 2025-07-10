@@ -26,27 +26,35 @@ wandb login
 
 ## Usage
 Regarding the usage of this repo, in order to reproduce the experiments, we organize the workflow in three steps: (i) data preparation and visualization, (ii) case base generation via DL, and (iii) CBR system running via kNN algorithm.
-
 ### Data preparation
 Due to the possibility of errors in the dataset, such as missing images, run the check-dataset.py script to detect such errors. Returns the elements to be removed from the json file (this can be done manually or via a script).
-```
+```sh
 python -m scripts.check-dataset --dataset data\coco_dataset.json
-```
+````
+
 In this work, the dataset was annotated with more labels than necessary. Some are grouped under more general labels. To aggregate all the labels of the three diseases studied in this work, the following script is executed. In addition, we split the dataset with the holdout method.
-```
+
+```sh
 python -m scripts.simplify-dataset --folder data
 python -m scripts.split-dataset --folder data
 ```
 
+**Data Augmentation:**
+Optionally, synthetic data can be generated using generative models (like Stable Diffusion with LoRA/QLoRA) to augment the training set, potentially improving model performance. For detailed instructions on setting up and running this process, please refer to the specific documentation:
+
+  * **[Data Augmentation Documentation](../data_augmentation/readme.md)**
+
 You can use the `dataset-stats.py` script to print the class occurrences for each dataset.
-```
+
+```sh
 python -m scripts.dataset-stats --dataset data\dataset.json # entire dataset
 python -m scripts.dataset-stats --dataset data\train.json # training set
 python -m scripts.dataset-stats --dataset data\test.json # test set
 ```
 
-Use the following command to visualize the dataset bbox distribution: 
-```
+Use the following command to visualize the dataset bbox distribution:
+
+```sh
 python -m scripts.plot-distribution --dataset data/dataset.json
 ```
 

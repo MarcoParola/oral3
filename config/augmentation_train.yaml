@@ -1,0 +1,208 @@
+# =================================================================
+# ===        UNIFIED GENERATIVE MODEL TRAINING CONFIG           ===
+# =================================================================
+# This file controls the main training script 'augmentation_train.py'.
+# It uses a modular structure to easily switch between different
+# training pipelines (LoRA, StyleGAN3) and datasets.
+
+# =================================================================
+#                         HOW TO USE
+# =================================================================
+# To configure a training run, follow this simplified 2-step process:
+#
+# 1. In 'GLOBAL SELECTORS' (section 1), set the 'active_dataset' to
+#    either "PhotoMOCI" or "OC_DATASET_2". This will automatically configure all paths
+#    and checkpoints for that dataset.
+#
+# 2. In 'GLOBAL SELECTORS', set the 'model_type' you want to train
+#    ('lora_diffusion' or 'stylegan3').
+# =================================================================
+#                 REQUIRED FOLDER STRUCTURE
+# =================================================================
+# The script relies on the following data organization.
+
+# --- For Directory-Based Datasets (e.g., OC_DATASET_2) ---
+#   data/OC_DATASET_2/no_aug/
+#   └── train/
+#       ├── class_A/
+#       └── class_B/
+
+# --- For JSON-Based Datasets (e.g., PhotoMOCI) ---
+#   data/PhotoMOCI/no_aug/
+#   ├── train.json
+#   └── PhotoMOCI/      <-- The folder containing all raw images.
+#
+# =================================================================
+
+
+# 1. --- GLOBAL SELECTORS ---
+# This is the main control panel for your experiments.
+
+# --- STEP 1: Choose the active dataset profile ---
+# This single line reconfigures all paths and checkpoints below.
+# Options: "PhotoMOCI", "OC_DATASET_2"
+active_dataset: "PhotoMOCI"
+
+# --- STEP 2: Choose the training pipeline ---
+# Options: 'lora_diffusion' or 'stylegan3'.
+model_type: 'lora_diffusion'
+
+
+# 2. --- DATASET LIBRARY ---
+# Define all dataset-specific parameters here. The active profile is
+# selected by the 'active_dataset' key above.
+datasets:
+  PhotoMOCI:
+    name: "PhotoMOCI"
+    type: "json"
+    # Base path for this dataset
+    base_path: "./data/PhotoMOCI/no_aug"
+    # Folder containing raw images (for JSON datasets)
+    image_folder: "oral1"
+    # Data files for LoRA training
+    train_file: "train.json"
+    val_file: "val.json"
+    test_file: "test.json"
+
+  OC_DATASET_2:
+    name: "OC_DATASET_2"
+    type: "directory"
+    # Base path for this dataset
+    base_path: "./data/OC_DATASET_2/no_aug"
+    # Not needed for directory-based datasets
+    image_folder: null
+    # Data folders for LoRA training
+    train_file: "train"
+    val_file: "val"
+    test_file: "test"
+
+
+lora_params:
+  train:
+    seed: 42
+    devices: 1
+    precision: "bf16-mixed"
+    max_epochs: 500
+    resume_from_checkpoint: logs/generative_models/lora_diffusion/PhotoMOCI/2025-07-09_23-49-02/checkpoints/epoch_epoch=11_lpips_val/lpips=0.71444_best.ckpt
+    
+    check_val_every_n_epoch: 4 # Perform validation every 5 epochs.
+    accumulate_grad_batches: 4 # Accumulate gradients over 2 batches.
+
+  checkpoint:
+    monitor: "val/loss"
+    mode: "min"
+    save_top_k: 1 
+    filename: "epoch_{epoch}_lpips_{val/lpips:.5f}_best"
+    save_last: true 
+    save_weights_only: true
+  
+  model:
+    # -- Model Identification --
+    pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
+
+    # -- LoRA Configuration --
+    lora_rank: 32
+    lora_alpha: 32
+    lora_dropout: 0.15
+    unet_lora_target_modules: ["to_q", "to_k", "to_v", "to_out.0"]
+    train_text_encoder_lora: true
+    text_encoder_lora_target_modules: ["q_proj", "v_proj"]
+
+    # -- Training & Optimizer Hyperparameters --
+    learning_rate: 1.0e-04
+    text_encoder_lora_lr_scale: 1.0
+    use_8bit_adam: true
+    adam_beta1: 0.9
+    adam_beta2: 0.999
+    adam_weight_decay: 1.0e-2
+
+    # -- Hardware & Optimization (QLoRA) --
+    use_4bit_quantization: true
+    bnb_4bit_quant_type: "nf4"
+    bnb_4bit_compute_dtype: "bf16"
+    gradient_checkpointing: true
+
+
+    # -- Validation & Logging --
+    validation_metrics: 'lpips'
+    lpips_net_type: 'alex'
+    val_num_inference_steps: 40
+    image_size: 256
+    
+
+  dataset:
+    base_path: ${datasets.${active_dataset}.base_path}
+    train_data: ${datasets.${active_dataset}.train_file}
+    val_data: ${datasets.${active_dataset}.val_file}
+    test_data: ${datasets.${active_dataset}.test_file}
+    coco_image_subdir: ${datasets.${active_dataset}.image_folder}
+    batch_size: 4
+    num_workers: 5
+
+  # Transforms are generic and shared
+  base_transform:
+    - {_target_: torchvision.transforms.Resize, size: [256, 256], interpolation: "BICUBIC"}
+    - {_target_: torchvision.transforms.ToTensor}
+    - {_target_: torchvision.transforms.Normalize, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]}
+
+  train_transform:
+    - {_target_: torchvision.transforms.Resize, size: [600, 600], interpolation: "BICUBIC"}
+    - {_target_: torchvision.transforms.RandomHorizontalFlip, p: 0.5}
+    - {_target_: torchvision.transforms.ColorJitter, brightness: 0.05, contrast: 0.05, saturation: 0.05}
+    - {_target_: torchvision.transforms.RandomAffine, degrees: 10, translate: [0.1, 0.1], scale: [0.85, 1.15], shear: 5}
+    - {_target_: torchvision.transforms.RandomCrop, size: [256, 256]}
+    - {_target_: torchvision.transforms.ToTensor}
+    - {_target_: torchvision.transforms.Normalize, mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5]}
+
+  val_transform: ${lora_params.base_transform}  
+  test_transform: ${lora_params.base_transform}
+
+
+# 4. --- PARAMETERS FOR STYLEGAN3 TRAINING ---
+# These parameters are also generic and adapt to the active dataset.
+stylegan3_params:
+
+  source_data_path: '${datasets.${active_dataset}.base_path}/${datasets.${active_dataset}.train_file}'
+  coco_image_source_dir: '${datasets.${active_dataset}.base_path}/${datasets.${active_dataset}.image_folder}'
+  prepared_data_root: './data/stylegan_prepared_datasets/${active_dataset}'
+
+  outdir: './logs/generative_models/stylegan3/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}'
+  cfg: 'stylegan3-t'
+  cond: true
+  gpus: 1
+  batch: 16       
+  mbstd-group: 4
+  gamma: 1.0  # ~ 0.0002 * resolution^2 / batch_size
+  map-depth: 8      
+  workers: 6
+  kimg: 10
+  snap: 1
+  mirror: true
+  aug: 'ada'
+  metrics: lpips,kid,fid
+  seed: 42
+  resolution: 256
+  cmax: 256  
+  tick: 1
+  resume: "C:/Users/nocel/Downloads/OC-2-GAN.pkl"
+
+# 5. --- GLOBAL SETTINGS ---
+stylegan3_repo_path: 'libs/stylegan3'
+
+log:
+  path: "./logs/"
+  wandb: true # For stylegan3, set to false to avoid duplicated logs
+  level: INFO
+
+  
+
+wandb:
+  project: "ORAL3_generative_models"
+  entity: "f-nocella1-university-of-pisa"
+  run_name: '${model_type}/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}'
+
+
+hydra:
+  run:
+    dir: ${log.path}/generative_models/${model_type}/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}
+

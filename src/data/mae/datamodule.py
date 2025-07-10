@@ -3,11 +3,11 @@ import hydra
 from torch.utils.data import DataLoader
 from pytorch_lightning import LightningDataModule
 
-from src.data1.autoencoder.dataset import OralAutoencoderDataset
+from src.data.mae.dataset import OralMAEDataset
 
 
-class OralAutoencoderDataModule(LightningDataModule):
-    def __init__(self, train, val, test, batch_size=32, train_transform=None, val_transform=None,
+class OralMAEDataModule(LightningDataModule):
+    def __init__(self, train, val, test, batch_size=16, train_transform=None, val_transform=None,
                  test_transform=None, transform=None):
         super().__init__()
         if train_transform is None:
@@ -17,9 +17,9 @@ class OralAutoencoderDataModule(LightningDataModule):
         if val_transform is None:
             val_transform = transform
 
-        self.train_dataset = OralAutoencoderDataset(train, transform=train_transform)
-        self.val_dataset = OralAutoencoderDataset(val, transform=val_transform)
-        self.test_dataset = OralAutoencoderDataset(test, transform=test_transform)
+        self.train_dataset = OralMAEDataset(train, transform=train_transform)
+        self.val_dataset = OralMAEDataset(val, transform=val_transform)
+        self.test_dataset = OralMAEDataset(test, transform=test_transform)
         self.batch_size = batch_size
 
     def train_dataloader(self):
