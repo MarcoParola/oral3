@@ -156,11 +156,6 @@ def validate_config(cfg: DictConfig):
         errors.append(f"'compute.dtype' must be one of {allowed_dtypes} "
                       f"or null.")
 
-    # Removed this check as calculate_lpips will always be False now
-    # if cfg.get("calculate_lpips", False) and not _LPIPS_AVAILABLE:
-    #     errors.append("Warning: 'calculate_lpips' is True, but LPIPS "
-    #                   "dependency not installed (torchmetrics[image]).")
-
     if not _MODEL_AVAILABLE:
         errors.append("Critical: LoraDiffusionModel class not found. Check "
                       "src/models/lora_diffusion.py and import paths.")
