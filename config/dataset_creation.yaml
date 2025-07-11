@@ -1,104 +1,91 @@
 # =================================================================
-#        AUTOMATIC GENERATION CONFIG (4 DATASETS)
+#      MODULAR OFFLINE DATA AUGMENTATION CONFIGURATION
 # =================================================================
 
-# --- Global Parameters ---
-# Starting seed for the entire run.
-# If not specified, defaults to 42.
-seed: 42
+# --- Global Settings ---
+seed: 42 
+output_base_path: "data/synthetic_datasets"
 
-# Output image size (height, width).
-# Use a single number for square images.
-output_size: 256
+# --- 1. Source Dataset Library ---
+source_dataset_library:
+  PhotoMOCI:
+    base_path: "data"
+    name: "PhotoMOCI"
+    source_type: "no_aug"
+    
+  OC_DATASET_2:
+    base_path: "data"
+    name: "OC_DATASET_2"
+    source_type: "no_aug"
 
-# Save images to disk every N images.
-save_interval: 100
-
-# Base output path for all generated datasets.
-dataset_output_path: "data/synthetic_datasets"
-
-# --- List of Generation Jobs ---
-generation_jobs:
-
-  # =================================================================
-  # JOB 1: Diffusion for PhotoMOCI
-  # =================================================================
-  - name: "Diffusion Generation for PhotoMOCI"
-    enabled: true
-    type: "diffusion"
-    output_dir_name: "diffusion_photomoci_v1"
-    generation_plan:
-      oral_aphthous_ulcer: 300
-      oral_traumatic_lesion: 300
-      oral_neoplastic_lesion: 300
+# --- 2. Generative Model Library ---
+model_library:
+  lora_photomoci:
+    source_dataset_name: "PhotoMOCI"
+    type: "lora_generate"
     params:
+      use_prompt_variation: false
       ckpt_path: 'E:/TESI/FINALE/oral3/logs/generative_models/lora_diffusion/PhotoMOCI/2025-07-10_01-17-31/checkpoints/epoch_epoch=19_lpips_val/lpips=0.68061_best.ckpt'
-      prompts:
-        oral_aphthous_ulcer: "Medical photograph of oral aphthous ulcer."
-        oral_traumatic_lesion: "Medical photograph of oral traumatic lesion."
-        oral_neoplastic_lesion: "Medical photograph of oral neoplastic lesion."
       base_model_name: "runwayml/stable-diffusion-v1-5"
-      negative_prompt: "low quality, blurry, noisy, text, watermark"
+      negative_prompt: "low quality, blurry, noisy, text, watermark, signature"
       generation: { steps: 35, guidance_scale: 8 }
       compute: { device: "cuda", dtype: "float16" }
-
-  # =================================================================
-  # JOB 2: Diffusion for OC_DATASET_2
-  # =================================================================
-  - name: "Diffusion Generation for OC_DATASET_2"
-    enabled: true
-    type: "diffusion"
-    output_dir_name: "diffusion_oc_dataset2_v1"
-    generation_plan: 
-      oral_cancer: 300
-      healthy_oral_tissue: 300
-    params:
-      ckpt_path: 'E:/TESI/FINALE/oral3/logs/generative_models/lora_diffusion/OC_DATASET_2/2025-07-08_19-08-50/checkpoints/epoch_epoch=27_lpips_val/lpips=0.64090_best.ckpt'
-      prompts:
-        oral_cancer: "Medical photograph of oral cancer."
-        healthy_oral_tissue: "Medical photograph of healthy oral tissue."
-      base_model_name: "runwayml/stable-diffusion-v1-5"
-      negative_prompt: "low quality, blurry, noisy, text, watermark"
-      generation: { steps: 35, guidance_scale: 8 }
-      compute: { device: "cuda", dtype: "float16" }
-
-  # =================================================================
-  # JOB 3: GAN for PhotoMOCI
-  # =================================================================
-  - name: "GAN Generation for PhotoMOCI"
-    enabled: true
+      
+  gan_photomoci:
+    source_dataset_name: "PhotoMOCI"
     type: "gan"
-    output_dir_name: "gan_photomoci_v1"
-    generation_plan:
-      oral_aphthous_ulcer: 300
-      oral_traumatic_lesion: 300
-      oral_neoplastic_lesion: 300
     params:
       network_pkl: "E:/TESI/FINALE/oral3/logs/generative_models/stylegan3/PhotoMOCI/2025-07-07_10-04-17/00000-stylegan3-t-PhotoMOCI-gpus1-batch16-gamma1/PhotoMOCI_best.pkl"
       stylegan_repo_path: 'libs/stylegan3'
-      truncation_psi: 0.7 
-      noise_mode: 'const'
+      truncation_psi: 0.7
+      
+  lora_oc2:
+    source_dataset_name: "OC_DATASET_2"
+    type: "lora_generate"
+    params:
+      use_prompt_variation: false
+      ckpt_path: 'E:/TESI/FINALE/oral3/logs/generative_models/lora_diffusion/OC_DATASET_2/2025-07-08_19-08-50/checkpoints/epoch_epoch=27_lpips_val/lpips=0.64090_best.ckpt'
+      base_model_name: "runwayml/stable-diffusion-v1-5"
+      negative_prompt: "low quality, blurry, noisy, text, watermark, signature"
+      generation: { steps: 35, guidance_scale: 8 }
+      compute: { device: "cuda", dtype: "float16" }
 
-  # =================================================================
-  # JOB 4: GAN for OC_DATASET_2
-  # =================================================================
-  - name: "GAN Generation for OC_DATASET_2"
-    enabled: true
+  gan_oc2:
+    source_dataset_name: "OC_DATASET_2"
     type: "gan"
-    output_dir_name: "gan_oc_dataset2_v1"
-    generation_plan:
-      oral_cancer: 300
-      healthy_oral_tissue: 300
     params:
       network_pkl: "E:/TESI/FINALE/oral3/logs/generative_models/stylegan3/OC_DATASET_2/2025-07-07_10-55-23/00000-stylegan3-t-OC_DATASET_2-gpus1-batch16-gamma1/OC-2-BEST.pkl"
       stylegan_repo_path: 'libs/stylegan3'
-      truncation_psi: 0.7 
-      noise_mode: 'const'
+      truncation_psi: 0.7
+
+# --- 3. Augmentation Job List ---
+# L'output path è ora gestito dallo script, non è più necessario specificarlo qui.
+augmentation_jobs:
+  - name: "LoRA Generation for PhotoMOCI"
+    enabled: true
+    model_profile: lora_photomoci
+    num_per_class: 300
+    
+  - name: "GAN Generation for PhotoMOCI"
+    enabled: true
+    model_profile: gan_photomoci
+    num_per_class: 300
+
+  - name: "LoRA Generation for OC_DATASET_2"
+    enabled: true
+    model_profile: lora_oc2
+    num_per_class: 300
+    
+  - name: "GAN Generation for OC_DATASET_2"
+    enabled: true
+    model_profile: gan_oc2
+    num_per_class: 300
 
 # --- Hydra Configuration ---
 hydra:
   run:
-    dir: outputs/generation_runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    dir: outputs/augmentation_runs/${now:%Y-%m-%d_%H-%M-%S}
   job_logging:
+    handlers: {}
     root:
-      level: INFO
+      level: INFO 

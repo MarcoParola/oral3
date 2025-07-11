@@ -205,4 +205,3 @@ src/models/stable_diffusion_2.py
 config/infer.yaml
 config/offline_data_augmentation.yaml
 augmentation_inference.py
-data_augmentation_generator.py
