@@ -14,6 +14,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import v2
 from PIL import Image, UnidentifiedImageError
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ class DiffusionDataset(Dataset):
     - Main data from directories or COCO-style JSON files.
     - Optional regularization data from a directory.
     - Subsampling of the dataset.
-    - Dynamic prompt generation with optional randomization to improve model robustness.
+    - Dynamic prompt generation with optional randomization.
+    - Optional returning of class labels as integer indices.
     """
     def __init__(self,
                  data_path: str,
@@ -34,58 +36,79 @@ class DiffusionDataset(Dataset):
                  reg_prompt: str = "a high quality photo of oral cavity",
                  dataset_load_percent: float = 100.0,
                  coco_image_subdir: str = "images",
-                 prompt_variation: bool = False
+                 prompt_variation: bool = False,
+                 return_class_label: bool = False
                  ) -> None:
+        """
+        Initializes the DiffusionDataset.
 
+        Args:
+            data_path: Path to the main data source (directory or JSON file).
+            transform: Composed torchvision transforms to apply to images.
+            reg_data_path: Optional path to regularization data (directory).
+            reg_prompt: Default prompt for regularization images.
+            dataset_load_percent: Percentage of data to load for subsampling.
+            coco_image_subdir: Subdirectory containing images for COCO-style JSON datasets.
+            prompt_variation: Enable dynamic prompt generation with variations.
+            return_class_label: If True, include class index in the returned dictionary.
+        """
         super().__init__()
         self.transform = transform if transform else self._get_default_transform()
         self.prompt_variation = prompt_variation
+        self.return_class_label = return_class_label
 
         self.prompt_templates = {
             'aphthous': [
-                "Medical photograph of oral aphthous ulcer.",
-                "Clinical image of aphthous stomatitis.",
-                "In-mouth shot of an aphthous lesion."
+                "a medical photograph of an aphthous lesion",
+                "a clinical image of an aphthous lesion",
+                "in-mouth shot of an aphthous lesion",
+                "high-resolution close-up of an aphthous ulcer",
+                "detailed intraoral photo showing an aphthous lesion"
             ],
             'traumatic': [
-                "Medical photograph of oral traumatic lesion.",
-                "Clinical image of oral traumatic injury.",
-                "In-mouth shot of an oral trauma."
+                "a medical photograph of a traumatic lesion",
+                "a clinical image of a traumatic lesion",
+                "in-mouth shot of a traumatic lesion",
+                "close-up clinical shot of a traumatic mouth wound",
+                "detailed intraoral photo of a traumatic tissue injury"
             ],
-            'neoplastic': [         
-                "Medical photograph of oral neoplastic lesion.",
-                "Clinical image of oral neoplastic growth.",
-                "In-mouth shot of an oral neoplasm."
+            'neoplastic': [
+                "a medical photograph of a neoplastic lesion",
+                "a clinical image of a neoplastic lesion",
+                "in-mouth shot of a neoplastic lesion",
+                "biopsy-level clinical photo of a neoplastic oral lesion",
+                "high-definition mouth image showing neoplastic growth"
             ],
             'cancer': [
-                "Medical photograph of oral cancer.",
-                "Clinical image of oral carcinoma.",
-                "In-mouth shot of oral cancer."
+                "a medical photograph of a cancerous tissue",
+                "a clinical image of a cancerous tissue",
+                "in-mouth shot of a cancerous tissue",
+                "detailed intraoral photo of cancerous tissue",
+                "high-contrast clinical shot of cancerous lesion"
             ],
-            'non cancer': [ 
-                "Medical photograph of healthy oral tissue.",
-                "Clinical image of non-cancerous oral mucosa.",
-                "In-mouth shot of healthy mouth."
+            'non cancer': [
+                "a medical photograph of healthy tissue",
+                "a clinical image of healthy tissue",
+                "in-mouth shot of healthy tissue",
+                "clear clinical photo of healthy oral mucosa",
+                "well-lit intraoral image of healthy mouth tissue"
             ]
         }
         
         self.class_names: List[str] = []
-        self.class_to_items_map: Dict[str, List[Tuple[str, str, int]]] = {} 
+        self.class_to_idx: Dict[str, int] = {}
+        self.class_to_items_map: Dict[str, List[Tuple[str, str, int]]] = {}
 
         logger.info(f"Loading main data from source: {data_path}")
-        # Changed main_items_raw to main_items
-        main_items = self._load_data(path=data_path, 
-                                     coco_image_subdir=coco_image_subdir)
+        main_items = self._load_data(path=data_path, coco_image_subdir=coco_image_subdir)
         
         reg_items = []
         if reg_data_path:
             logger.info(f"Loading regularization data from source: {reg_data_path}")
-            # Changed reg_items_raw to reg_items
             reg_items = self._load_data(path=reg_data_path,
                                         directory_prompt_override=reg_prompt,
                                         coco_image_subdir=coco_image_subdir)
 
-        # Apply subsampling
         main_items_subsampled = self._subsample_items(main_items, dataset_load_percent, "main")
         reg_items_subsampled = self._subsample_items(reg_items, dataset_load_percent, "regularization")
 
@@ -102,8 +125,8 @@ class DiffusionDataset(Dataset):
 
     def _build_class_maps(self):
         """
-        Builds class_names and class_to_items_map from self.all_items.
-        Assumes each item in `self.all_items` is a tuple `(image_path, prompt, class_name_str)`.
+        Builds `class_names` (list of unique class names), `class_to_idx` map,
+        and `class_to_items_map`.
         """
         self.class_names.clear()
         self.class_to_items_map.clear()
@@ -116,8 +139,12 @@ class DiffusionDataset(Dataset):
             
             self.class_to_items_map[class_name_str].append((image_path, text_prompt, current_idx))
 
+        # Create a sorted, reproducible list of class names and the corresponding map to indices
         self.class_names = sorted(list(unique_class_names_set))
+        self.class_to_idx = {name: i for i, name in enumerate(self.class_names)}
+        
         logger.info(f"Discovered {len(self.class_names)} unique classes: {self.class_names}")
+        logger.info(f"Class to index mapping: {self.class_to_idx}")
 
 
     def _generate_prompt_for_class(self, class_name: str, use_variation: Optional[bool] = None) -> str:
@@ -171,6 +198,7 @@ class DiffusionDataset(Dataset):
             
             actual_class_name = class_name_dir
 
+            # Generate a non-varied prompt by default for consistency across an entire class folder
             prompt = prompt_override if prompt_override else self._generate_prompt_for_class(actual_class_name, use_variation=False)
 
             for file_name in sorted(os.listdir(class_dir)):
@@ -245,12 +273,12 @@ class DiffusionDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Optional[Dict[str, Any]]:
         """
-        Retrieves, loads, and v2 a single data sample.
+        Retrieves, loads, and transforms a single data sample.
         """
         if not 0 <= idx < len(self):
             raise IndexError(f"Index {idx} is out of bounds for dataset of size {len(self)}")
 
-        image_path, text_prompt, _ = self.all_items[idx] 
+        image_path, text_prompt, class_name = self.all_items[idx]
         
         try:
             image = Image.open(image_path).convert("RGB")
@@ -260,11 +288,16 @@ class DiffusionDataset(Dataset):
 
         pixel_values = self.transform(image)
 
-        return {
+        item = {
             "pixel_values": pixel_values,
             "text": text_prompt,
             "image_path": image_path,
         }
+
+        if self.return_class_label:
+            item["class_labels"] = self.class_to_idx[class_name]
+        
+        return item
 
     def get_class_names(self) -> List[str]:
         """Returns a list of unique class names found in the dataset."""
@@ -338,9 +371,10 @@ class DiffusionDataset(Dataset):
 
     def _get_default_transform(self) -> v2.Compose:
         """Provides a default transformation pipeline if none is specified."""
-        logger.warning("No transform provided")
+        logger.warning("No transform provided, using default.")
         return v2.Compose([
             v2.Resize((256, 256), interpolation=v2.InterpolationMode.BICUBIC),
-            v2.Compose([v2.ToImage(), v2.ToDtype(torch.float32, scale=True)]),
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
             v2.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])

@@ -59,7 +59,6 @@ model_library:
       truncation_psi: 0.7
 
 # --- 3. Augmentation Job List ---
-# L'output path è ora gestito dallo script, non è più necessario specificarlo qui.
 augmentation_jobs:
   - name: "LoRA Generation for PhotoMOCI"
     enabled: true

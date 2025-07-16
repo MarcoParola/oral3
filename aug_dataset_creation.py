@@ -1,20 +1,13 @@
-# offline_data_augmentation.py
-# -*- coding: utf-8 -*-
 """
-Offline Dataset Augmentation and Synthesis Script.
+Offline data augmentation script for creating augmented image datasets.
 
-This script provides a modular, configuration-driven pipeline for offline data
-augmentation. It supports both traditional "Data Warping" techniques (classic
-augmentation) and "Synthetic Oversampling" via generative models like
-fine-tuned LoRA/Diffusion models and StyleGAN3.
-
-The script operates in a three-stage workflow:
-1.  DEFINE:   Analyzes a source dataset to create a generation plan.
-2.  SYNTHESIZE: Generates new images using a selected engine.
-3.  MATERIALIZE: Saves the new images to create a final, augmented dataset.
-
-It is designed to work with both directory-based (ImageFolder-style) and
-COCO-style JSON datasets, automatically detecting the source format.
+This script implements a 'DEFINE -> SYNTHESIZE -> MATERIALIZE' workflow:
+1.  DEFINE: Calculates the number of images to generate per class based on a
+    source dataset and a specified percentage.
+2.  SYNTHESIZE: Generates new images using a selected engine (e.g., LoRA,
+    StyleGAN, classic transforms).
+3.  MATERIALIZE: Copies the original dataset and saves the new images and
+    metadata to create a final, augmented dataset.
 """
 
 # =============================================================================
@@ -22,7 +15,6 @@ COCO-style JSON datasets, automatically detecting the source format.
 # =============================================================================
 
 # --- Standard Library Imports ---
-import os
 import sys
 import json
 import shutil
@@ -80,18 +72,17 @@ def define_augmentation_strategy(
     source_train_path: Path,
     generation_percentage: float
 ) -> Tuple[Optional[Dict[str, int]], Optional[str]]:
-    """
-    Analyzes a source dataset to define a class-balanced generation strategy.
+    """Analyzes a source dataset to define a class-balanced generation strategy.
 
-    This function inspects the source data, determines if it's directory-based
-    or COCO JSON-based, and calculates how many new images to generate for
-    each class based on the given percentage.
+    This function inspects the source data, determines if it is structured as
+    class directories or a COCO-style JSON manifest, and calculates how many
+    new images to generate for each class to meet the target percentage.
 
     Args:
-        source_train_path: Path to the source training data, which can be a
-                           directory of class folders or a single .json file.
+        source_train_path: Path to the source training data (either a directory
+          of class folders or a single .json file).
         generation_percentage: The percentage of the total dataset size to
-                               generate as new images.
+          generate as new images.
 
     Returns:
         A tuple containing:
@@ -179,11 +170,10 @@ def define_augmentation_strategy(
 # =============================================================================
 
 def resolve_synthesis_engine(engine_type: str) -> Optional[Callable]:
-    """
-    Resolves the requested synthesis engine function based on a key.
+    """Resolves the requested synthesis engine function from a string key.
 
-    This acts as a factory or router, mapping a string from the config file
-    to a specific Python function responsible for image generation.
+    This factory function maps a string from the configuration file to the
+    actual Python function responsible for image generation.
 
     Args:
         engine_type: The key for the engine (e.g., 'lora_generate').
@@ -207,21 +197,20 @@ def synthesize_new_images(
     target_counts: Dict[str, int],
     source_train_path: Path
 ) -> List[Tuple[str, Image.Image, str]]:
-    """
-    Orchestrates the image synthesis process for all classes.
+    """Generates images using a fine-tuned LoRA/Diffusion model.
 
-    This function intelligently handles both directory and JSON dataset formats,
-    prepares the necessary arguments for the selected synthesis engine, and
-    collects all generated images.
+    This engine loads a Stable Diffusion pipeline, applies LoRA weights from a
+    checkpoint, and generates images from class-specific text prompts. It uses
+    a global cache to avoid reloading the same model across different classes.
 
     Args:
-        job_cfg: The configuration object for the current augmentation job.
-        target_counts: A dictionary mapping class names to the number of images to generate.
-        source_train_path: Path to the source data (directory or .json file).
+        params: Configuration parameters for the engine.
+        num_to_generate: The number of images to generate.
+        class_label: The class name to generate images for.
+        **kwargs: Catches unused arguments.
 
     Returns:
-        A list of tuples, where each tuple contains (filename, PIL.Image, class_label)
-        for a newly synthesized image.
+        A list of (filename, PIL.Image, class_label) tuples.
     """
     synthesis_engine = resolve_synthesis_engine(job_cfg.type)
     if not synthesis_engine:
@@ -410,26 +399,24 @@ def synthesize_with_finetuned_lora(
     return synthesized_samples
 
 
-def synthesize_from_manual_policy(
+def synthesize_from_manual_policy( # not used in the current config
     params: DictConfig,
     num_to_generate: int,
     class_label: str,
     source_images: List[Path],
     **kwargs
 ) -> List[Tuple[str, Image.Image, str]]:
-    """
-    Synthesizes images using a user-defined policy of classic transforms.
+    """Synthesizes images using a user-defined policy of classic transforms.
 
-    This engine takes a list of source image paths, randomly selects one for
-    each new sample, applies the specified torchvision transforms, and returns
-    the augmented image.
+    This engine applies a composition of torchvision transforms to randomly
+    selected source images from the specified class.
 
     Args:
-        params: Configuration parameters, expected to contain a 'transforms' block.
+        params: Configuration parameters, containing a 'transforms' block.
         num_to_generate: The number of augmented images to create.
         class_label: The name of the current class.
         source_images: A list of Paths to the source images for this class.
-        **kwargs: Catches any unused arguments.
+        **kwargs: Catches unused arguments.
 
     Returns:
         A list of (filename, PIL.Image, class_label) tuples.
@@ -465,19 +452,18 @@ def synthesize_using_gan(
     class_idx: int,
     **kwargs
 ) -> List[Tuple[str, Image.Image, str]]:
-    """
-    Synthesizes images conditionally using the official StyleGAN3 script.
+    """Synthesizes images conditionally using an external StyleGAN script.
 
-    This function acts as a wrapper around the `gen_images.py` script from the
-    NVIDIA StyleGAN3 repository. It dynamically builds the command-line
-    arguments from the config and executes the script as a subprocess.
+    This function is a wrapper around a command-line tool (e.g., StyleGAN3's
+    `gen_images.py`). It builds the command from config parameters and executes
+    it as a subprocess to generate images.
 
     Args:
-        params: Configuration parameters for the StyleGAN3 engine.
+        params: Configuration parameters for the StyleGAN engine.
         num_to_generate: The number of images to generate.
         class_label: The name of the current class.
-        class_idx: The numerical index of the class, required for conditional generation.
-        **kwargs: Catches any unused arguments.
+        class_idx: The numerical index of the class for conditional generation.
+        **kwargs: Catches unused arguments.
 
     Returns:
         A list of (filename, PIL.Image, class_label) tuples.
@@ -573,14 +559,11 @@ def _add_new_entries_to_manifest(
     synthesized_samples: List[Tuple[str, Image.Image, str]],
     image_dir_name: str
 ):
-    """
-    A helper function to add metadata of newly generated images to a COCO-style manifest.
+    """Adds metadata for newly generated images to a COCO-style manifest.
 
     Args:
-        manifest: The manifest dictionary loaded from a .json file.
+        manifest: The manifest dictionary (loaded from a .json file).
         synthesized_samples: The list of newly generated image tuples.
-        image_dir_name: The name of the directory where images are stored, to be
-                        included in the image `file_name` path.
     """
     if not all(k in manifest for k in ["images", "annotations", "categories"]):
         logger.error("Manifest is not in COCO-like format. Skipping update.")
@@ -619,18 +602,17 @@ def materialize_augmented_dataset(
     source_format: str,
     synthesized_samples: List[Tuple]
 ):
-    """
-    Creates the final augmented dataset on disk.
+    """Creates the final augmented dataset on disk.
 
     This function first copies the original dataset to a new output directory.
-    Then, it saves the newly synthesized images into the appropriate location,
-    updating the COCO JSON manifest if necessary.
+    It then saves the newly synthesized images into the appropriate location,
+    updating the COCO JSON manifest if one exists.
 
     Args:
-        job_cfg: The configuration for the current augmentation job.
-        source_cfg: The configuration for the source dataset.
+        job_cfg: Configuration for the current augmentation job.
+        source_cfg: Configuration for the source dataset.
         source_format: The detected format ('directory' or 'json').
-        synthesized_samples: The list of newly generated image tuples.
+        synthesized_samples: A list of (filename, PIL.Image, class_label) tuples.
     """
     # Resolve paths from original CWD to handle Hydra's directory changes.
     original_cwd = Path(get_original_cwd())

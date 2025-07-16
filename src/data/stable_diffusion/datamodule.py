@@ -36,6 +36,8 @@ class DiffusionDataModule(pl.LightningDataModule):
                  val_transform: Optional[Union[ListConfig, DictConfig]] = None,
                  test_transform: Optional[Union[ListConfig, DictConfig]] = None,
                  base_transform: Optional[Union[ListConfig, DictConfig]] = None,
+                 prompt_variation: Optional[bool] = False,
+                 return_class_label: bool = False,
                 ) -> None:
         """Initializes the DataModule."""
         super().__init__()
@@ -56,7 +58,11 @@ class DiffusionDataModule(pl.LightningDataModule):
         """Assigns and prepares datasets for the specified stage."""
         logger.info(f"DataModule setup initiated for stage: {stage}")
         
-        dataset_common_args = {"coco_image_subdir": self.hparams.coco_image_subdir}
+        dataset_common_args = {
+            "coco_image_subdir": self.hparams.coco_image_subdir,
+            "prompt_variation": self.hparams.prompt_variation,
+            "return_class_label": self.hparams.return_class_label,
+        }
         
         if stage in ("fit", None):
             self.train_dataset = DiffusionDataset(
@@ -104,7 +110,6 @@ class DiffusionDataModule(pl.LightningDataModule):
     def _create_dataloader(self, dataset: Optional[DiffusionDataset], shuffle: bool, drop_last: bool = False) -> DataLoader:
         """A factory method for creating DataLoader instances."""
         if not dataset:
-            logger.warning(f"Returning an empty DataLoader for a None or empty dataset.")
             return DataLoader([])
         
         return DataLoader(
@@ -121,16 +126,11 @@ class DiffusionDataModule(pl.LightningDataModule):
         val_t = self._instantiate_transforms(self.hparams.val_transform) or base_t
         test_t = self._instantiate_transforms(self.hparams.test_transform) or base_t
 
-        if train_t is None: raise ValueError("Training transform is required but could not be instantiated.")
-        if val_t is None: raise ValueError("Validation transform is required but could not be instantiated.")
-        if test_t is None: logger.warning("Test/Predict transform is not configured, using base transform.")
-        
         return train_t, val_t, test_t
 
     def _instantiate_transforms(self, cfg: Optional[Union[ListConfig, DictConfig]]) -> Optional[transforms.Compose]:
         """
         Instantiates a torchvision transforms pipeline from a Hydra/OmegaConf config.
-        This version intelligently handles string-based interpolation modes.
         """
         if cfg is None: return None
         
@@ -149,11 +149,7 @@ class DiffusionDataModule(pl.LightningDataModule):
             if t_cfg.get('_target_') == 'torchvision.transforms.Resize' and \
                'interpolation' in t_cfg and isinstance(t_cfg.interpolation, str):
                 interp_str = t_cfg.interpolation.upper()
-                if interp_str in interpolation_map:
-                    logger.info(f"Converting interpolation string '{t_cfg.interpolation}' to enum for Resize transform.")
-                    t_cfg.interpolation = interpolation_map[interp_str]
-                else:
-                    logger.warning(f"Unrecognized interpolation string: '{t_cfg.interpolation}'. Letting torchvision handle it.")
+                t_cfg.interpolation = interpolation_map.get(interp_str, t_cfg.interpolation)
             try:
                 instance = hydra.utils.instantiate(t_cfg)
                 transform_list.append(instance)

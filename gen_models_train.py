@@ -493,7 +493,7 @@ def run_stylegan_training(cfg: DictConfig):
     else:
         logger.error(f"--- StyleGAN3 Training Process FAILED with exit code {process.returncode} ---")
 
-@hydra.main(version_base=None, config_path="./config", config_name="augmentation_train.yaml")
+@hydra.main(version_base=None, config_path="./config", config_name="gen_models_train")
 def main(cfg: DictConfig):
     """Main entry point that dispatches to the correct training function."""
     

@@ -41,7 +41,7 @@
 # --- STEP 1: Choose the active dataset profile ---
 # This single line reconfigures all paths and checkpoints below.
 # Options: "PhotoMOCI", "OC_DATASET_2"
-active_dataset: "PhotoMOCI"
+active_dataset: "OC_DATASET_2"
 
 # --- STEP 2: Choose the training pipeline ---
 # Options: 'lora_diffusion' or 'stylegan3'.

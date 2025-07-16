@@ -571,14 +571,12 @@ def main(cfg: DictConfig):
     save_comparison: bool = cfg.get("save_comparison_image", True)
     output_filename_prefix: str = cfg.get("output_filename", "output")
 
-    # Removed all_lpips_scores as it's no longer used
     all_lpips_val_scores = []
 
     for p_idx, prompt in enumerate(prompts):
         logger.info(f"--- Processing Prompt {p_idx+1}/{len(prompts)}: '{prompt}' ---")
         logger.info(f"Generating {num_images_per_prompt} comparison image(s).")
         
-        # Removed prompt_lpips_scores
         prompt_lpips_val_scores = []
 
         for i in range(num_images_per_prompt):
@@ -618,10 +616,8 @@ def main(cfg: DictConfig):
                     tuned_img = tuned_result.images[0]
                     logger.debug("Fine-tuned image generated.")
 
-                # Removed LPIPS Calculation (Base vs Fine-tuned)
-                current_lpips = None # Ensure it remains None
+                current_lpips = None 
 
-                # --- LPIPS Calculation (Fine-tuned vs Validation) ---
                 current_lpips_with_val = None
                 if lpips_metric and lpips_transform and cfg.get("calculate_lpips_with_val", False) and val_images_tensors:
                     try:
@@ -634,7 +630,6 @@ def main(cfg: DictConfig):
                             for img_t in val_images_tensors
                         ]
 
-                        # Calculate LPIPS between the tuned image and EACH sampled validation image
                         min_lpips_for_tuned_img = float('inf')
                         for val_t in val_tensors_normalized:
                             lpips_val_tensor = lpips_metric(tuned_tensor_for_lpips, val_t.unsqueeze(0))
@@ -667,14 +662,12 @@ def main(cfg: DictConfig):
                             img2=tuned_img,
                             prompt=prompt,
                             seed=current_seed,
-                            # Removed lpips_score=current_lpips
                             lpips_with_val_score=current_lpips_with_val,
                             font_size=cfg.get("annotation_font_size", 14)
                         )
                         comparison_image.save(comp_path)
-                        # lpips_str = f"{current_lpips:.4f}" if current_lpips is not None else "N/A" # Removed
                         lpips_val_str = f"{current_lpips_with_val:.4f}" if current_lpips_with_val is not None else "N/A"
-                        logger.info(f"Saved comparison image (LPIPS_Val: {lpips_val_str}): {comp_path}") # Modified log message
+                        logger.info(f"Saved comparison image (LPIPS_Val: {lpips_val_str}): {comp_path}") 
                     except Exception as e:
                         logger.error(f"Failed to create/save comparison image "
                                         f"'{comp_path}': {e}", exc_info=True)
@@ -684,11 +677,8 @@ def main(cfg: DictConfig):
                                     f"{i+1} of prompt {p_idx+1}: {e}")
                 continue
 
-        # Removed all_lpips_scores.extend(prompt_lpips_scores)
         all_lpips_val_scores.extend(prompt_lpips_val_scores)
 
-    # --- Final LPIPS Summary ---
-    # Removed if cfg.get("calculate_lpips", False) block
 
     if cfg.get("calculate_lpips_with_val", False):
         valid_lpips_val_scores = [s for s in all_lpips_val_scores if s is not None]
@@ -712,7 +702,5 @@ def main(cfg: DictConfig):
     logger.info("--- Inference Finished ---")
 
 
-# --- Script Entry Point ---
 if __name__ == "__main__":
-    # Hydra decorator handles configuration loading and execution
     main()

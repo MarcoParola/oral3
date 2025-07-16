@@ -1,0 +1,76 @@
+# Core Configuration
+seed: 42 # Seed for reproducibility across runs.
+
+# Active Dataset and Model Type Selection
+active_dataset: PhotoMOCI # Specifies the dataset to be used. Options: "PhotoMOCI", "OC_DATASET_2".
+active_model_type: stylegan3 # Specifies the model type to be used. Options: 'lora_diffusion', 'stylegan3'.
+generated_images_path: null
+
+# Dataset Configurations
+datasets:
+  PhotoMOCI:
+    name: "PhotoMOCI" # Name of the PhotoMOCI dataset.
+    type: "json" # Type of data loading (e.g., "json" for JSON files).
+    base_path: "./data/PhotoMOCI/no_aug" # Base directory for the PhotoMOCI dataset.
+    image_folder: "oral1" # Subfolder containing images for PhotoMOCI.
+    train_file: "train.json" # Training data file for PhotoMOCI.
+    val_file: "val.json" # Validation data file for PhotoMOCI.
+    test_file: "test.json" # Test data file for PhotoMOCI.
+  OC_DATASET_2:
+    name: "OC_DATASET_2" # Name of the OC_DATASET_2 dataset.
+    type: "directory" # Type of data loading (e.g., "directory" for direct folder access).
+    base_path: "./data/OC_DATASET_2/no_aug" # Base directory for the OC_DATASET_2 dataset.
+    image_folder: null # No specific image subfolder for OC_DATASET_2 as it's a direct directory.
+    train_file: "train" # Training data directory for OC_DATASET_2.
+    val_file: "val" # Validation data directory for OC_DATASET_2.
+    test_file: "test" # Test data directory for OC_DATASET_2.
+
+# Model Checkpoints
+model_checkpoints:
+  lora_diffusion:
+    PhotoMOCI: "logs/generative_models/lora_diffusion/PhotoMOCI/2025-07-14_23-20-37/checkpoints/epoch_epoch=10_loss_val/loss=0.10524_best.ckpt" # Checkpoint path for LoRA Diffusion on PhotoMOCI.
+    OC_DATASET_2: "logs/generative_models/lora_diffusion/OC_DATASET_2/2025-07-14_15-03-38/checkpoints/epoch_epoch=14_loss_val/loss=0.14912_best.ckpt" # Checkpoint path for LoRA Diffusion on OC_DATASET_2.
+  stylegan3:
+    PhotoMOCI: "logs/generative_models/stylegan3/PhotoMOCI/2025-07-07_10-04-17/00000-stylegan3-t-PhotoMOCI-gpus1-batch16-gamma1/PhotoMOCI_best.pkl" # Checkpoint path for StyleGAN3 on PhotoMOCI.
+    OC_DATASET_2: "logs/generative_models/stylegan3/OC_DATASET_2/2025-07-07_10-55-23/00000-stylegan3-t-OC_DATASET_2-gpus1-batch16-gamma1/OC-2-BEST.pkl" # Checkpoint path for StyleGAN3 on OC_DATASET_2.
+
+# Output and Evaluation Settings
+save_images_path: "logs/test/${active_model_type}/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}/test_images/" # Path to save generated and real images for inspection.
+metrics_output_file: "logs/test/${active_model_type}/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}/metrics_summary.csv" # Path to save the metrics summary file.
+dataset_splits: ['test'] # Dataset splits to use for evaluation. Options: ['val'], ['test'], ['val', 'test'].
+batch_size: 32 # Batch size for image generation and metric calculation.
+num_workers: 5 # Number of worker processes for efficient data loading.
+
+# Diffusion Model Parameters (relevant for LoRA Diffusion)
+diffusion_params:
+  diffusion_steps: 100 # Number of diffusion steps for image generation.
+  guidance_scale: 7.5 # Guidance scale for text-to-image generation.
+  diffusion_mode: img_to_img # Diffusion mode. Options: 'img_to_img', 'text_to_img'.
+  injection_lambda: null # Lambda parameter for injection (specific to certain diffusion setups).
+
+# StyleGAN3 Specific Parameters
+stylegan3_params:
+  truncation_psi: 0.7 # Truncation psi for controlling latent space exploration in StyleGAN3.
+  noise_mode: 'const' # Noise mode for StyleGAN3.
+  translate: null # Translate XY-coordinates (e.g., '0.1,-0.2' for image manipulation).
+  rotate: null # Rotate in degrees (e.g., '15.0' for image manipulation).
+  stylegan3_project_path: libs/stylegan3 # Path to the StyleGAN3 project directory.
+  
+# CLIP Score Prompts (primarily for StyleGAN3)
+# For StyleGAN3 (class-conditional models), these prompts are used
+# in conjunction with class labels to calculate the CLIP Score.
+# Keys should match class names defined in your dataset.
+clip_prompts_by_class:
+  "aphthous": "a medical photograph of an aphthous lesion"
+  "traumatic": "a medical photograph of a traumatic lesion"
+  "neoplastic": "a medical photograph of a neoplastic lesion"
+  "cancer": "a medical photograph of a cancerous tissue"
+  "non cancer": "a medical photograph of healthy tissue"
+
+# Compute Parameters
+devices: 1 # Number of GPUs to use (e.g., 1 for single GPU, [0,1] for multiple).
+
+# Hydra Configuration
+hydra:
+  run:
+    dir: "logs/test/${active_model_type}/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}" # Output directory for this specific test run, dynamically named by model, dataset, and timestamp.
