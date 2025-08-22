@@ -1,65 +1,44 @@
-# =================================================================
-#      Full Hydra Configuration for Injection Analysis
-# =================================================================
-# HOW TO USE:
-# 1. Set 'active_dataset' to "PhotoMOCI" or "OC_DATASET_2".
-# 2. Set 'prompt_variation' to "with_var" or "no_var" to select the model.
-# =================================================================
-
-# Load this configuration by default.
 defaults:
+  - _datasets
+  - _models
   - _self_
 
-# 1. --- GLOBAL SELECTORS ---
-# Select the dataset profile for the analysis.
-active_dataset: "OC_DATASET_2"
+# -----------------------------------------------------------------
+# ---                 Primary Run Configuration                 ---
+# -----------------------------------------------------------------
 
-# Select the model type based on its training method.
-# Options: "var", "no_var"
-prompt_variation: "no_var"
+# Select the active dataset for this analysis.
+# This key must correspond to an entry in _datasets.yaml.
+active_dataset: PhotoMOCI # Options: PhotoMOCI, OC_DATASET_2
 
-# 2. --- DATASET & CHECKPOINT LIBRARY ---
-# Contains specific paths for each dataset and model type.
-datasets:
-  PhotoMOCI:
-    checkpoints:
-      var: "logs/generative_models/lora_diffusion/PhotoMOCI/2025-07-15_00-10-08/checkpoints/epoch_epoch=24_loss_val/loss=0.13384_best.ckpt"
-      no_var: "logs/generative_models/lora_diffusion/PhotoMOCI/2025-07-14_23-20-37/checkpoints/epoch_epoch=10_loss_val/loss=0.10524_best.ckpt"
-    guidance_data: "data/PhotoMOCI/no_aug/train.json"
-    coco_image_subdir: "oral1" 
-
-  OC_DATASET_2:
-    checkpoints:
-      var: "logs/generative_models/lora_diffusion/OC_DATASET_2/2025-07-15_01-13-36/checkpoints/epoch_epoch=21_loss_val/loss=0.15619_best.ckpt"
-      no_var: "logs/generative_models/lora_diffusion/OC_DATASET_2/2025-07-14_15-03-38/checkpoints/epoch_epoch=14_loss_val/loss=0.14912_best.ckpt"
-    guidance_data: "data/OC_DATASET_2/no_aug/train"
-    coco_image_subdir: null # Not needed for directory-based datasets
-
-# =================================================================
-#      MAIN CONFIGURATION 
-# =================================================================
+# -----------------------------------------------------------------
+# ---                Experiment Configuration                   ---
+# -----------------------------------------------------------------
 
 experiment:
   seed: 42
 
-# --- Paths ---
-# Paths are loaded dynamically using the selectors above.
 paths:
-  checkpoint: ${datasets.${active_dataset}.checkpoints.${prompt_variation}}
-  guidance_data: ${datasets.${active_dataset}.guidance_data}
-  coco_image_subdir: ${datasets.${active_dataset}.coco_image_subdir}
+  # The model checkpoint is inherited from _models.yaml.
+  checkpoint: ${models.lora_diffusion.${active_dataset}.ckpt}
 
-# --- Generation Parameters ---
+  # Guidance data path is inherited from _datasets.yaml.
+  guidance_data: ${datasets.${active_dataset}.base_path}/${datasets.${active_dataset}.train_file}
+  coco_image_subdir: ${datasets.${active_dataset}.image_folder}
+
 generation:
   num_inference_steps: 100
   guidance_scale: 7.5
   lambda_values: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+  examples_per_class: 1
 
-# --- Compute Parameters ---
 compute:
-  device: "cuda" 
+  device: "cuda"
 
-# --- Hydra Settings ---
+# -----------------------------------------------------------------
+# ---                   Hydra Configuration                     ---
+# -----------------------------------------------------------------
+
 hydra:
   run:
-    dir: logs/injection_analysis/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}-${prompt_variation}
+    dir: logs/injection_analysis/${active_dataset}/${now:%Y-%m-%d_%H-%M-%S}

@@ -1,21 +1,23 @@
-# src/data/stable_diffusion/datamodule.py
 """
-Implements the PyTorch Lightning DataModule for the UnifiedDiffusionDataset.
-This module encapsulates all data-related setup, including dataset and
-dataloader instantiation, and manages data transformations via configuration.
+A PyTorch Lightning DataModule for handling diffusion model datasets.
+
+This module manages data loading, transformations, and dataloader instantiation
+based on a Hydra configuration.
 """
 
+# --- Third-party Imports ---
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 import logging
 from typing import Optional, Union, Tuple
-
 from torchvision import transforms
 from omegaconf import DictConfig, ListConfig, OmegaConf 
 import hydra 
 
+# --- Local Application Imports ---
 from src.data.stable_diffusion.dataset import DiffusionDataset
 
+# Configure a module-level logger.
 logger = logging.getLogger(__name__)
 
 class DiffusionDataModule(pl.LightningDataModule):
@@ -26,7 +28,7 @@ class DiffusionDataModule(pl.LightningDataModule):
                  test_path: str,
                  reg_data_path: Optional[str] = None,
                  reg_prompt: str = "a high quality photo of oral cavity",
-                 coco_image_subdir: str = "images",
+                 image_folder : str = "oral1",
                  dataset_load_percent: float = 100.0,
                  batch_size: int = 16,
                  num_workers: int = 0,
@@ -39,13 +41,15 @@ class DiffusionDataModule(pl.LightningDataModule):
                  prompt_variation: Optional[bool] = False,
                  return_class_label: bool = False,
                 ) -> None:
-        """Initializes the DataModule."""
+        """Initializes the DataModule and its transformations."""
         super().__init__()
         self.save_hyperparameters()
-        
+
+        # Instantiate transform pipelines from the configuration.
         logger.info("DataModule is instantiating transforms from configuration.")
         self.train_transform_inst, self.val_transform_inst, self.test_transform_inst = self._init_transforms()
         
+        # Initialize dataset placeholders.
         self.train_dataset: Optional[DiffusionDataset] = None
         self.val_dataset: Optional[DiffusionDataset] = None
         self.test_dataset: Optional[DiffusionDataset] = None
@@ -59,7 +63,7 @@ class DiffusionDataModule(pl.LightningDataModule):
         logger.info(f"DataModule setup initiated for stage: {stage}")
         
         dataset_common_args = {
-            "coco_image_subdir": self.hparams.coco_image_subdir,
+            "image_folder": self.hparams.image_folder ,
             "prompt_variation": self.hparams.prompt_variation,
             "return_class_label": self.hparams.return_class_label,
         }
@@ -108,7 +112,7 @@ class DiffusionDataModule(pl.LightningDataModule):
         return self._create_dataloader(self.predict_dataset, shuffle=False)
     
     def _create_dataloader(self, dataset: Optional[DiffusionDataset], shuffle: bool, drop_last: bool = False) -> DataLoader:
-        """A factory method for creating DataLoader instances."""
+        """A helper method to create a DataLoader with consistent settings."""
         if not dataset:
             return DataLoader([])
         

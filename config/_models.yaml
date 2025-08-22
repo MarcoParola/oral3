@@ -1,0 +1,34 @@
+# =================================================================
+# ===                         MODELS                            ===
+# =================================================================
+
+
+models:
+  # --- Foundational Models ---
+  base:
+    stable_diffusion_v1_5: "runwayml/stable-diffusion-v1-5"
+
+  # --- LoRA Diffusion Checkpoints ---
+  lora_diffusion:
+    PhotoMOCI:
+      ckpt: "D:/Tesi/FINAL_MODELS/Models/PhotoMOCI/diffusion/photomoci_diff_best.ckpt"
+    OC_DATASET_2:
+      ckpt: "D:/Tesi/FINAL_MODELS/Models/KOCD/diffusion/kocd_diff_best.ckpt"
+
+  # --- StyleGAN3 Checkpoints ---
+  stylegan3:
+    PhotoMOCI:
+      standard: "D:/Tesi/FINAL_MODELS/Models/PhotoMOCI/stylegan3/photomoci_best.pkl"
+      ac_gan: "D:/Tesi/FINAL_MODELS/Models/PhotoMOCI/ac-staylegan3/photomoci_ac_best.pkl"
+    OC_DATASET_2:
+      standard: "D:/Tesi/FINAL_MODELS/Models/KOCD/stylegan3/kocd_best.pkl"
+      ac_gan: "D:/Tesi/FINAL_MODELS/Models/KOCD/ac-staylegan3/kocd_ac_best.pkl"
+
+  # --- Classification Models ---
+  classification:
+    resnet50:
+      name: resnet50
+      weights: ResNet50_Weights.IMAGENET1K_V1
+    vit_b_16:
+      name: vit_b_16
+      weights: ViT_B_16_Weights.IMAGENET1K_V1

@@ -5,7 +5,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import wandb 
 
 # Import utility functions
-import os 
+from pathlib import Path
+import os
 from datetime import datetime as dt
 from src.utils import get_early_stopping, get_experiment_dirs, get_transformations
 from src.log import LossLogCallback, get_loggers
@@ -19,8 +20,7 @@ from src.models.dino import OralDinoModule
 from src.models.vicreg import OralVICRegModule
 from src.models.moco import OralMOCOModule
 
-# Import data modules corresponding to each model type. Data modules help manage data loading,
-# transformations, and batching in a consistent way.
+# Import data modules corresponding to each model type. 
 from src.data.mae.datamodule import OralMAEDataModule
 from src.data.autoencoder.datamodule import OralAutoencoderDataModule
 from src.data.vicreg.datamodule import OralVICRegDataModule
@@ -40,6 +40,9 @@ def main(cfg):
 
     # Setup loggers
     loggers = get_loggers(cfg, run_output_dir)
+
+    # Setup temporary directory for wandb in the current working directory
+    os.environ['WANDB_DIR'] = '.'
 
     # Set precision based on classification mode, for CAE use high precision
     if cfg.classification_mode == 'cae':
@@ -73,13 +76,13 @@ def main(cfg):
     model, data = get_model_and_data(cfg)
 
     trainer = pl.Trainer(
-        default_root_dir= checkpoint_dir,
-        logger=loggers,  
-        callbacks=callbacks,  
-        accelerator='cuda' if torch.cuda.is_available() else 'cpu',  
-        devices=cfg.get('train.devices', 1),  
-        log_every_n_steps=cfg.get('train.log_every_n_steps', 1),
-        max_epochs=cfg.get('train.max_epochs', 100),
+    default_root_dir=checkpoint_dir,
+    logger=loggers,
+    callbacks=callbacks,
+    accelerator='cuda' if torch.cuda.is_available() else 'cpu',
+    devices=cfg.train.devices,
+    log_every_n_steps=cfg.train.log_every_n_steps,
+    max_epochs=cfg.train.max_epochs,
     )
 
     # Start the training loop.
@@ -162,35 +165,21 @@ def main(cfg):
 
 def get_model_and_data(cfg: DictConfig) -> Tuple[pl.LightningModule, pl.LightningDataModule]:
     """
-    Instantiates and returns the appropriate model and data module based on the
-    provided configuration.
-
-    This factory function dynamically discovers class information from the DataModule
-    before instantiating the Model, supporting all defined classification modes.
-    It is refactored to use dictionaries for module selection to improve
-    readability and maintainability.
+    Factory function to instantiate the correct model and data module.
     """
-    # --- Build data paths from config ---
-    dataset_dir = os.path.join(
-        cfg.dataset.get('base_path'),
-        cfg.dataset.get('dataset_name'),
-        cfg.dataset.get('augmentation_type')
-    )
+    dataset_dir = Path(cfg.dataset.base_path)
 
-    # Determine the path suffix based on the specified data format.
-    data_format = cfg.dataset.get('data_format')
-    path_suffix = '.json' if data_format == 'json' else ''
-    if data_format not in ['json', 'directory']:
-        raise ValueError(f"Unsupported data_format: {data_format}. Must be 'json' or 'directory'.")
+    dataset_type = cfg.dataset.type
+    path_suffix = '.json' if dataset_type == 'json' else ''
+    if dataset_type not in ['json', 'directory']:
+        raise ValueError(f"Unsupported dataset type: {dataset_type}. Must be 'json' or 'directory'.")
 
-    train_path = os.path.join(dataset_dir, f'train{path_suffix}')
-    val_path = os.path.join(dataset_dir, f'val{path_suffix}')
-    test_path = os.path.join(dataset_dir, f'test{path_suffix}')
+    train_path = dataset_dir / f'train{path_suffix}'
+    val_path = dataset_dir / f'val{path_suffix}'
+    test_path = dataset_dir / f'test{path_suffix}'
 
-    # Obtain image transformations from a separate utility function.
     train_img_transform, val_img_transform, test_img_transform, img_transform = get_transformations(cfg)
 
-    # --- Instantiate the DataModule using a mapping ---
     DATA_MODULE_MAP = {
         'whole': OralClassificationDataModule,
         'contrastive': OralContrastiveDataModule,
@@ -201,43 +190,35 @@ def get_model_and_data(cfg: DictConfig) -> Tuple[pl.LightningModule, pl.Lightnin
         'moco': OralMOCODataModule,
     }
     
-    classification_mode = cfg.get('classification_mode')
+    classification_mode = cfg.classification_mode
     data_module_class = DATA_MODULE_MAP.get(classification_mode)
     if not data_module_class:
         raise NotImplementedError(f"DataModule for mode '{classification_mode}' is not implemented.")
 
-    # Define common arguments for all DataModule instances.
     data_args = {
-        'train': train_path, 
-        'val': val_path, 
-        'test': test_path,
-        'batch_size': cfg.train.get('batch_size'), 
-        'num_workers': cfg.train.get('num_workers'),
+        'train_path': str(train_path), 
+        'val_path': str(val_path), 
+        'test_path': str(test_path),
+        'batch_size': cfg.train.batch_size, 
+        'num_workers': cfg.train.num_workers,
         'train_transform': train_img_transform, 
         'val_transform': val_img_transform,
         'test_transform': test_img_transform, 
-        'transform': img_transform
+        'transform': img_transform,
+        'train_aug_path': cfg.dataset.get('augmentation_data_path', None),
+        'train_aug_percentage': cfg.dataset.get('augmentation_percentage', None)
     }
+    
     data = data_module_class(**data_args)
 
-    # --- Discover dataset properties ---
-    # The setup hook is called to allow the DataModule to discover class labels and other metadata.
     data.setup(stage='fit')
-    print(f"INFO: Discovered {data.num_classes} classes from the dataset: {data.classes}")
     
-    # --- Instantiate the Model using a mapping ---
-    task = cfg.get('task')
-    if task in ['c', 'classification']:
-        # Handle the special case for 'cae' mode, which has a unique constructor signature.
+    if cfg.task == 'classification':
         if classification_mode == 'cae':
             model = Autoencoder(
-                cfg.get('ae'),
-                cfg.model.get('output_dim'),
-                cfg.train.get('lr'),
-                cfg.train.get('max_epochs')
+                cfg.ae, cfg.model.output_dim, cfg.train.lr, cfg.train.max_epochs
             )
         else:
-            # Define a mapping for all standard classification models.
             MODEL_MAP = {
                 'whole': OralClassifierModule,
                 'contrastive': OralContrastiveClassifierModule,
@@ -250,23 +231,22 @@ def get_model_and_data(cfg: DictConfig) -> Tuple[pl.LightningModule, pl.Lightnin
             if not model_class:
                 raise NotImplementedError(f"Model for mode '{classification_mode}' is not implemented.")
 
-            # Define common arguments for all standard model instances.
             model_args = {
-                'weights': cfg.model.get('weights'),
-                'num_classes': data.num_classes,  # Dynamically sourced from data module
-                'output_dim': cfg.model.get('output_dim'),
-                'lr': cfg.train.get('lr'),
-                'max_epochs': cfg.train.get('max_epochs')
+                'weights': cfg.model.weights,
+                'num_classes': data.num_classes,
+                'output_dim': cfg.model.output_dim,
+                'lr': cfg.train.lr,
+                'max_epochs': cfg.train.max_epochs
             }
             model = model_class(**model_args)
             
-        # Set the discovered class names on the model instance for logging and other purposes.
         if hasattr(model, 'classes'):
             model.classes = data.classes
     else:
-        raise NotImplementedError(f"Task '{task}' is not supported.")
+        raise NotImplementedError(f"Task '{cfg.task}' is not supported.")
             
     return model, data
+
 
 if __name__ == "__main__":
     main()

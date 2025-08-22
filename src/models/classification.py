@@ -4,11 +4,13 @@ from pytorch_grad_cam import HiResCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 import cv2
 import numpy as np
-from sklearn.metrics import classification_report, f1_score, accuracy_score
+from sklearn.metrics import classification_report
 from pytorch_lightning import LightningModule
 import matplotlib.pyplot as plt
 import hydra
 import os
+
+# Import utility functions for logging and visualization.
 from src.utils import log_confusion_matrix_tensorboard, get_tensorboard_logger, log_confusion_matrix_wandb
 from torchvision.models.feature_extraction import create_feature_extractor
 
@@ -21,6 +23,8 @@ class OralClassifierModule(LightningModule):
 
     def __init__(self, weights, num_classes, output_dim, lr=10e-3, max_epochs=150):
         super().__init__()
+
+        # Configure precision for matrix multiplication to optimize performance.
         torch.set_float32_matmul_precision('medium')
         self.save_hyperparameters()
 
@@ -35,17 +39,20 @@ class OralClassifierModule(LightningModule):
         weights_cls = getattr(torchvision.models, weights_cls_name)
         weights_obj = getattr(weights_cls, weights_name)
         self.model = getattr(torchvision.models, self.model_name)(weights=weights_obj)
+
+        # Adapt the model's final classification layer for the specific task.
         self._set_model_classifier(weights_cls, num_classes)
 
+        # Define preprocessing, loss function, and class name placeholder.
         self.preprocess = weights_obj.transforms()
         self.loss = torch.nn.CrossEntropyLoss()
         self.classes = None
 
-        # --- Metric Accumulators ---
+        # Initialize lists to accumulate outputs for metric calculation.
         self.test_step_outputs = []
         self.validation_step_outputs = []
 
-        # --- Grad-CAM Target Layer Configuration ---
+        # Configure target layers for Grad-CAM based on the model architecture.
         if "vit" in self.model_name:
             self.target_layers = [self.model.conv_proj]
         elif "convnext" in self.model_name:
@@ -59,7 +66,7 @@ class OralClassifierModule(LightningModule):
         else:
             raise NotImplementedError(f"Target layers not defined for model: {self.model_name}")
         
-        # --- Feature Extractor Configuration ---
+        # Configure the feature extractor for intermediate layer activations.
         name = str(weights_cls)
         if "SqueezeNet1_1" in name or "SqueezeNet1_0" in name:
             self.feature_extractor = create_feature_extractor(self.model, ['classifier'])
@@ -78,9 +85,9 @@ class OralClassifierModule(LightningModule):
     
     def extract_features(self, x):
         return self.feature_extractor(x)
-
+    
     def training_step(self, batch, batch_idx):
-        imgs, labels, _, _ = batch
+        imgs, labels, _, _, is_original = batch
         x = self.preprocess(imgs)
         y_hat = self(x)
         loss = self.loss(y_hat, labels)
@@ -89,7 +96,7 @@ class OralClassifierModule(LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        imgs, labels, _, _ = batch
+        imgs, labels, _, _, is_original = batch
         x = self.preprocess(imgs)
         y_hat = self(x)
         loss = self.loss(y_hat, labels)
@@ -98,6 +105,7 @@ class OralClassifierModule(LightningModule):
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         self.validation_step_outputs.append({'predictions': predictions.cpu(), 'labels': labels.cpu()})
 
+        # Generate and save Grad-CAM visualizations for the first batch of each validation epoch.
         if batch_idx == 0:
             with torch.set_grad_enabled(True):
                 self.model.eval()
@@ -133,11 +141,13 @@ class OralClassifierModule(LightningModule):
         all_preds = torch.cat([x['predictions'] for x in self.validation_step_outputs]).numpy()
         all_labels = torch.cat([x['labels'] for x in self.validation_step_outputs]).numpy()
 
+        # Use provided class names for the report, otherwise use integer indices.
         if hasattr(self, 'classes') and self.classes and len(self.classes) == self.num_classes:
             target_class_names = self.classes
         else:
             target_class_names = [str(i) for i in range(self.num_classes)]
 
+        # Generate a classification report and log key metrics.
         metrics_dict = classification_report(
             y_true=all_labels, y_pred=all_preds,
             target_names=target_class_names, zero_division=0, output_dict=True
@@ -160,7 +170,7 @@ class OralClassifierModule(LightningModule):
         self.test_step_outputs.clear()
 
     def test_step(self, batch, batch_idx):
-        imgs, labels, _, _ = batch
+        imgs, labels, _, _, is_original = batch
         x = self.preprocess(imgs)
         y_hat = self(x)
         predictions = torch.argmax(y_hat, dim=1)
@@ -170,15 +180,18 @@ class OralClassifierModule(LightningModule):
         if not self.test_step_outputs:
             return
 
+        # Aggregate labels and predictions from all test steps.
         ground_truth_labels = torch.cat([x['labels'] for x in self.test_step_outputs]).numpy()
         predicted_labels = torch.cat([x['predictions'] for x in self.test_step_outputs]).numpy()
         self.test_step_outputs.clear()
 
+        # Use provided class names for the report, otherwise use integer indices.
         if hasattr(self, 'classes') and self.classes and len(self.classes) == self.num_classes:
             target_class_names = self.classes
         else:
             target_class_names = [str(i) for i in range(self.num_classes)]
 
+        # Print the final classification report to the console.
         classification_summary_str = classification_report(
             y_true=ground_truth_labels, y_pred=predicted_labels,
             target_names=target_class_names, zero_division=0
@@ -186,6 +199,7 @@ class OralClassifierModule(LightningModule):
         print("\n--- Final Model Performance Evaluation: Test Set ---")
         print(classification_summary_str)
         
+        # Generate a dictionary of metrics for detailed logging.
         metrics_dict = classification_report(
             y_true=ground_truth_labels, y_pred=predicted_labels,
             target_names=target_class_names, zero_division=0, output_dict=True
@@ -205,6 +219,7 @@ class OralClassifierModule(LightningModule):
                 self.log(f'test/recall_class_{sanitized_name}', class_metrics['recall'])
                 self.log(f'test/f1_score_class_{sanitized_name}', class_metrics['f1-score'])
 
+        # Log confusion matrices to configured loggers (WandB, TensorBoard).
         if hasattr(self, 'classes') and self.classes:
             log_confusion_matrix_wandb(
                 self.logger.__class__.__name__.lower(), self.logger.experiment,
@@ -228,7 +243,9 @@ class OralClassifierModule(LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"}}
 
     def _set_model_classifier(self, weights_cls, num_classes):
+
         weights_cls_str = str(weights_cls)
+        # Adapt the classifier based on the specific model architecture.
         if "ConvNeXt" in weights_cls_str:
             self.model.classifier = torch.nn.Sequential(
                 torch.nn.Dropout(0.5),
@@ -279,6 +296,7 @@ class OralClassifierModule(LightningModule):
                 torch.nn.AvgPool2d(kernel_size=13, stride=1, padding=0)
             )
 
+        # Append a final linear layer to map to the number of classes.
         self.model.lastLayer = torch.nn.Sequential(
             torch.nn.ReLU(),
             torch.nn.Dropout(0.5),

@@ -95,7 +95,7 @@ class LoraDiffusionModel(pl.LightningModule):
         vae_name_or_path: Optional[str] = None, # Optional path to a custom VAE, ortherwise uses the one from the main model.
         # --- LoRA Configuration ---
         lora_rank: int = 16,
-        lora_alpha: int = 16,
+        lora_alpha: int = 32,
         lora_dropout: float = 0.1,
         unet_lora_target_modules: Tuple[str, ...] = ("to_q", "to_k", "to_v", "to_out.0"),
         train_text_encoder_lora: bool = True,
@@ -127,43 +127,7 @@ class LoraDiffusionModel(pl.LightningModule):
         image_size: int = 256,
         validation_seed: Optional[int] = 42,
     ):
-        """Initializes the LoraDiffusionModel.
-
-        Args:
-            pretrained_model_name_or_path: Path to pretrained model or model identifier.
-            vae_name_or_path: Optional path to a VAE; if None, uses the one from the main model.
-            lora_rank: The rank 'r' of the LoRA update matrices.
-            lora_alpha: The scaling factor for LoRA updates.
-            lora_dropout: Dropout probability for LoRA layers.
-            unet_lora_target_modules: Tuple of UNet module names to apply LoRA to.
-            train_text_encoder_lora: Whether to apply LoRA to the text encoder.
-            text_encoder_lora_target_modules: Tuple of text encoder module names to apply LoRA to.
-            text_encoder_lora_rank: Optional rank for text encoder LoRA. Defaults to `lora_rank`.
-            text_encoder_lora_alpha: Optional alpha for text encoder LoRA. Defaults to `lora_alpha`.
-            learning_rate: The base learning rate for the optimizer.
-            text_encoder_lora_lr_scale: LR scaling factor for the text encoder's LoRA params.
-            adam_beta1: Beta1 for Adam optimizer.
-            adam_beta2: Beta2 for Adam optimizer.
-            adam_weight_decay: Weight decay for Adam optimizer.
-            adam_epsilon: Epsilon for Adam optimizer.
-            use_8bit_adam: Whether to use the 8-bit Adam optimizer.
-            use_4bit_quantization: Whether to use 4-bit QLoRA quantization.
-            bnb_4bit_quant_type: Quantization type for 4-bit (`"nf4"` or `"fp4"`).
-            bnb_4bit_compute_dtype: Compute dtype for 4-bit quantization.
-            mixed_precision: Training precision (`"bf16"`, `"fp16"`, or `"fp32"`).
-            gradient_checkpointing: Whether to use gradient checkpointing.
-            validation_metric: Metric for validation (`"LPIPS"`, `"CLIPScore"`, `"FID"`, or `"none"`).
-            clip_model_name_or_path: Model name for CLIPScore calculation.
-            lpips_net_type: Network type for LPIPS (`"vgg"` or `"alex"`).
-            fid_feature_size: Feature dimension for FID (e.g., 2048 for InceptionV3).
-            num_validation_images: Number of images to generate for validation.
-            val_num_inference_steps: Number of DDIM steps for validation image generation.
-            log_every_n_epochs: Frequency of logging validation images and metrics.
-            image_size: The size (height and width) of the images.
-            validation_seed: A fixed seed for reproducible validation image generation. If None, uses a random seed.
-        """
         super().__init__()
-        # PyTorch Lightning automatically saves hyperparameters passed to __init__
         self.save_hyperparameters()
 
         # Configure precision based on hparams
@@ -241,12 +205,11 @@ class LoraDiffusionModel(pl.LightningModule):
         model_path = self.hparams.pretrained_model_name_or_path
 
         vae_path = self.hparams.vae_name_or_path or model_path
-        # VAE is typically kept in float32 for stability, or its original dtype.
-        # Ensure it's loaded appropriately.
+        # VAE is typically kept in float32 for stability
         self.vae = AutoencoderKL.from_pretrained(
             vae_path,
             subfolder="vae" if self.hparams.vae_name_or_path is None else None,
-            torch_dtype=torch.float32 # VAE usually benefits from full precision
+            torch_dtype=torch.float32
         )
 
         self.tokenizer = CLIPTokenizer.from_pretrained(model_path, subfolder="tokenizer", use_fast=True)
@@ -287,7 +250,7 @@ class LoraDiffusionModel(pl.LightningModule):
             lora_alpha=self.hparams.lora_alpha,
             lora_dropout=self.hparams.lora_dropout,
             target_modules=list(self.hparams.unet_lora_target_modules),
-            bias="none", # LoRA typically does not modify biases
+            bias="none", 
         )
         self.unet = get_peft_model(self.unet, unet_lora_config)
         self.unet.print_trainable_parameters()
@@ -345,17 +308,13 @@ class LoraDiffusionModel(pl.LightningModule):
 
     @torch.no_grad()
     def _encode_vae(self, pixel_values: torch.Tensor) -> torch.Tensor:
-        """Encodes pixel values to latents using the VAE.
-
-        The VAE encoding operation is performed in float32 for numerical stability,
-        as recommended for VAEs in diffusion models.
-        """
+        """Encodes pixel values to latents using the VAE"""        
         latents = self.vae.encode(pixel_values.to(dtype=torch.float32)).latent_dist.sample()
         return latents * self.vae.config.scaling_factor
 
     @torch.no_grad()
     def _decode_vae(self, latents: torch.Tensor) -> torch.Tensor:
-        """Decodes latents back to pixel values using the VAE."""
+        """Decodes latents back to pixel values using the VAE"""
         latents = latents / self.vae.config.scaling_factor
         image = self.vae.decode(latents.to(self.vae.dtype)).sample
         return image.clamp(-1, 1)
@@ -376,11 +335,11 @@ class LoraDiffusionModel(pl.LightningModule):
     def _shared_step(self, batch: Dict[str, Any]) -> torch.Tensor:
         """Performs a single forward pass for training or validation and computes the MSE loss."""
         # Encode images to latents.
-        # Latents are moved to the configured `self.torch_dtype` for consistency with UNet.
-        latents = self._encode_vae(batch["pixel_values"]).to(self.torch_dtype)
+        latents = self._encode_vae(batch["images"]).to(self.torch_dtype)
         
         # Sample noise for the diffusion process
         noise = torch.randn_like(latents)
+
         # Sample random timesteps
         timesteps = torch.randint(
             0,
@@ -394,13 +353,9 @@ class LoraDiffusionModel(pl.LightningModule):
         
         # Encode text prompts to embeddings.
         # The `_encode_text` method ensures embeddings are on the correct device.
-        encoder_hidden_states = self._encode_text(batch["text"])
+        encoder_hidden_states = self._encode_text(batch["prompts"])
         
         # Predict noise using UNet.
-        # The `autocast` context in `training_step`/`validation_step` (handled by Lightning)
-        # will wrap the UNet call and manage precision for compute-intensive ops.
-        # It's important to keep `noise_pred` and `noise` in float for MSE loss calculation
-        # to avoid potential precision issues or overflows with lower precision dtypes.
         noise_pred = self.unet(noisy_latents, timesteps, encoder_hidden_states).sample
         return F.mse_loss(noise_pred.float(), noise.float(), reduction="mean")
 
@@ -420,7 +375,7 @@ class LoraDiffusionModel(pl.LightningModule):
         # Store prompts and original images from the first batch for epoch-end logging
         if batch_idx == 0:
             self._validation_outputs.append(
-                {"prompts": batch["text"], "original_images": batch["pixel_values"]}
+                {"prompts": batch["prompts"], "original_images": batch["images"]}
             )
 
     def on_validation_epoch_end(self):
@@ -533,8 +488,6 @@ class LoraDiffusionModel(pl.LightningModule):
     ) -> torch.Tensor:
         """
         Generates image samples from a list of prompts using the DDIM scheduler.
-        It prioritizes an explicitly passed seed, falling back to a fixed
-        validation seed if available.
         """
         if not prompts:
             logger.warning("generate_samples called with empty prompts. Returning empty tensor.")
@@ -546,10 +499,8 @@ class LoraDiffusionModel(pl.LightningModule):
         self.vae.eval()
 
         generator = None
-        # Prioritize the explicit seed passed to the function (for testing).
         if seed is not None:
             generator = torch.Generator(device=self.device).manual_seed(seed)
-        # Fallback to the hparam seed for reproducible validation during training.
         elif self.hparams.validation_seed is not None:
             generator = torch.Generator(device=self.device).manual_seed(self.hparams.validation_seed)
             logger.info(f"Using fixed hparam validation_seed: {self.hparams.validation_seed}")
@@ -593,19 +544,14 @@ class LoraDiffusionModel(pl.LightningModule):
 
 
     @torch.no_grad()
-    def generation_with_guidance(self, prompts: list[str], guidance_images: torch.Tensor, cfg: DictConfig, return_snapshots: bool = False, seed: Optional[int] = None):
+    def generation_with_guidance(self, prompts: list[str], guidance_images: torch.Tensor, cfg: DictConfig, seed: Optional[int] = None):
         """
         Generates a batch of images using guided injection.
-        
-        - If return_snapshots is False (default), it uses an OPTIMIZED path that skips
-          unnecessary initial steps for maximum speed.
-        - If return_snapshots is True, it runs the FULL, slower process to generate
-          snapshots from the very beginning.
         """
         if len(prompts) != guidance_images.shape[0]:
             raise ValueError("The number of prompts must match the number of guidance images.")
 
-        # --- Common Setup ---
+        # --- Setup ---
         device = self.device
         batch_size = len(prompts)
         gen_cfg = cfg.generation
@@ -616,78 +562,53 @@ class LoraDiffusionModel(pl.LightningModule):
         self.inference_scheduler.set_timesteps(num_steps, device=device)
         timesteps = self.inference_scheduler.timesteps
 
+        # --- Prepare Embeddings and Generator ---
         uncond_embeddings = self._encode_text([""] * batch_size)
         text_embeddings = self._encode_text(prompts)
         text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
         
         generator = torch.Generator(device=device).manual_seed(seed) if seed is not None else None
-        snapshots = []
 
-        # --- Conditional Logic: Choose between speed and full snapshots ---
+        # --- Prepare Initial Latents for Guided Generation ---
+        logger.info(f"Starting guided generation for {batch_size} images.")
         
-        if not return_snapshots:
-            logger.info(f"Starting OPTIMIZED guided generation for {batch_size} images.")
-            
-            injection_step_index = int(img2img_cfg.injection_lambda * num_steps)
-            injection_timestep = timesteps[injection_step_index]
-            
-            guidance_latents = self._encode_vae(guidance_images.to(device, dtype=self.torch_dtype))
-            
-            noise = torch.randn(guidance_latents.shape, device=guidance_latents.device, dtype=guidance_latents.dtype, generator=generator)
-            latents = self.noise_scheduler.add_noise(guidance_latents, noise, torch.tensor([injection_timestep] * batch_size, device=device))
-            latents = latents.to(self.torch_dtype)
+        # Determine the starting timestep for the denoising loop.
+        injection_step_index = int(img2img_cfg.injection_lambda * num_steps)
+        injection_timestep = timesteps[injection_step_index]
+        
+        # Encode guidance images to the latent space.
+        guidance_latents = self._encode_vae(guidance_images.to(device, dtype=self.torch_dtype))
+        
+        # Create the initial noisy latents by adding a specific amount of noise
+        # to the guidance latents, effectively setting the starting point of the diffusion.
+        noise = torch.randn(guidance_latents.shape, device=guidance_latents.device, dtype=guidance_latents.dtype, generator=generator)
+        latents = self.noise_scheduler.add_noise(guidance_latents, noise, torch.tensor([injection_timestep] * batch_size, device=device))
+        latents = latents.to(self.torch_dtype)
 
-            loop_timesteps = timesteps[injection_step_index:]
-
-        else:
-            logger.info(f"Starting FULL guided generation for {batch_size} images to capture snapshots.")
-            
-            injection_step = int(img2img_cfg.injection_lambda * num_steps)
-            guidance_latents = self._encode_vae(guidance_images.to(device, dtype=self.torch_dtype))
-            
-            latents_shape = (batch_size, self.unet.config.in_channels, self.hparams.image_size // 8, self.hparams.image_size // 8)
-            latents = torch.randn(latents_shape, device=device, dtype=self.torch_dtype, generator=generator)
-            latents = latents * self.inference_scheduler.init_noise_sigma
-            
-            loop_timesteps = enumerate(tqdm(timesteps, desc="Full Guided Generation"))
-
-            # This inner loop is only for the full path
-            for i, t in loop_timesteps:
-                if i == injection_step:
-                    noise = torch.randn(guidance_latents.shape, device=guidance_latents.device, dtype=guidance_latents.dtype, generator=generator)
-                    latents = self.noise_scheduler.add_noise(guidance_latents, noise, torch.tensor([t] * batch_size, device=device)).to(self.torch_dtype)
-
-                # Denoising step
-                latent_model_input = torch.cat([latents] * 2)
-                latent_model_input = self.inference_scheduler.scale_model_input(latent_model_input, t)
-                with torch.autocast(device_type=self.device.type, dtype=self.torch_dtype):
-                    noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
-                latents = self.inference_scheduler.step(noise_pred, t, latents).prev_sample
-                
-                # Snapshot capturing
-                if (i + 1) % 10 == 0:
-                    snapshots.append(self._decode_vae(latents.clone()).cpu())
-            
-            # Since the loop is finished, we can return directly
-            final_images = self._decode_vae(latents.clone())
-            snapshots.append(final_images.clone().cpu())
-            return (final_images, snapshots)
+        # The denoising loop will start from the injection step onward.
+        loop_timesteps = timesteps[injection_step_index:]
 
         # --- Denoising Loop ---
-        for t in tqdm(loop_timesteps, desc="Optimized Guided Generation"):
+        for t in tqdm(loop_timesteps, desc="Guided Generation"):
+            # Classifier-Free Guidance requires duplicating latents for uncond/cond paths.
             latent_model_input = torch.cat([latents] * 2)
             latent_model_input = self.inference_scheduler.scale_model_input(latent_model_input, t)
+            
+            # Predict the noise residual using the UNet.
             with torch.autocast(device_type=self.device.type, dtype=self.torch_dtype):
                 noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=text_embeddings).sample
+                
+                # Perform guidance.
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+            
+            # Compute the previous noisy sample (denoising step).
             latents = self.inference_scheduler.step(noise_pred, t, latents).prev_sample
 
+        # --- Decode Final Latents to Images ---
         final_images = self._decode_vae(latents.clone())
         return final_images
-
+    
     def configure_optimizers(self) -> Dict[str, Any]:
         """Configures the optimizer and learning rate scheduler for training.
 
@@ -748,8 +669,6 @@ class LoraDiffusionModel(pl.LightningModule):
                         "Datamodule or its train_dataloader is not available for calculating total_steps. "
                         "Cannot precisely estimate total_steps for LR scheduler."
                     )
-                    # Fallback to a large number if total steps cannot be determined,
-                    # so scheduler doesn't crash but might not be optimal.
                     total_steps = 1_000_000
                 else:
                     train_dataloader = self.trainer.datamodule.train_dataloader()
@@ -766,7 +685,7 @@ class LoraDiffusionModel(pl.LightningModule):
 
         except Exception as e:
             logger.error(f"Error calculating total_steps for LR scheduler: {e}. Using fallback 1,000_000.")
-            total_steps = 1_000_000 # Final robust fallback
+            total_steps = 1_000_000 
 
         # Initialize OneCycleLR scheduler
         scheduler = OneCycleLR(
@@ -838,8 +757,7 @@ class LoraDiffusionModel(pl.LightningModule):
         lora_weights_dir: str,
         pretrained_model_name_or_path: str = "runwayml/stable-diffusion-v1-5",
         map_location: Optional[str] = None,
-        # All hyperparameters required by LoraDiffusionModel's __init__ must be provided
-        # so that the base model is correctly initialized and LoRA adapters can be attached.
+        # All hyperparameters are required to re-initialize the base model correctly.
         lora_rank: int = 16,
         lora_alpha: int = 16,
         lora_dropout: float = 0.1,
@@ -848,7 +766,7 @@ class LoraDiffusionModel(pl.LightningModule):
         text_encoder_lora_target_modules: Tuple[str, ...] = ("q_proj", "v_proj"),
         text_encoder_lora_rank: Optional[int] = None,
         text_encoder_lora_alpha: Optional[int] = None,
-        learning_rate: float = 1e-4, # Ensure all base hparams are here
+        learning_rate: float = 1e-4, 
         text_encoder_lora_lr_scale: float = 1.0,
         adam_beta1: float = 0.9,
         adam_beta2: float = 0.999,
@@ -871,31 +789,12 @@ class LoraDiffusionModel(pl.LightningModule):
         validation_seed: Optional[int] = 42,
         vae_name_or_path: Optional[str] = None
     ) -> "LoraDiffusionModel":
-        """
-        Loads a LoraDiffusionModel by first initializing the base model (with empty LoRA adapters)
-        and then loading the specific LoRA weights from the provided directory.
-
-        Args:
-            lora_weights_dir: Path to the directory containing the saved LoRA weights.
-                              This directory is expected to contain 'unet/' and optionally
-                              'text_encoder/' subdirectories with 'adapter_model.safetensors'
-                              (or '.bin') and 'adapter_config.json' inside them.
-            pretrained_model_name_or_path: The original base model identifier.
-            map_location: Device to map the loaded weights to (e.g., 'cpu', 'cuda:0').
-                          If None, defaults to current device.
-            **kwargs: All hyperparameters required by LoraDiffusionModel's __init__ must be explicitly
-                      passed here to ensure proper model re-initialization before loading adapters.
-
-        Returns:
-            An instance of LoraDiffusionModel with loaded LoRA weights.
-        """
+       
         logger.info(f"Loading LoRA weights from directory: {lora_weights_dir}")
-
-        # Instantiate the model with its full configuration. This will load the base
-        # models and apply *empty* LoRA adapters based on the provided hparams.
+        # Instantiate the model with its full configuration to apply empty LoRA adapters.
         model = cls(
             pretrained_model_name_or_path=pretrained_model_name_or_path,
-            vae_name_or_path=vae_name_or_path, # Pass vae_name_or_path
+            vae_name_or_path=vae_name_or_path, 
             lora_rank=lora_rank,
             lora_alpha=lora_alpha,
             lora_dropout=lora_dropout,
@@ -927,29 +826,16 @@ class LoraDiffusionModel(pl.LightningModule):
             validation_seed=validation_seed,
         )
         
-        # Ensure model is on the correct device for loading weights
-        # Lightning's device property is typically set during setup.
-        # Explicitly moving here if map_location is provided.
+        # Ensure model is on the correct device before loading state dicts.
         if map_location:
             model.to(map_location)
-        else:
-            # If map_location is not specified, ensure model is on the default device
-            # that Lightning would use (e.g., 'cuda:0' if GPU is available).
-            # This is more robust than assuming model.device is already correct for external loading.
-            if torch.cuda.is_available():
-                model.to("cuda")
-
+        elif torch.cuda.is_available():
+            model.to("cuda")
 
         try:
-            # Load the LoRA adapter weights directly into the existing PeftModel instances.
-            # PEFT's from_pretrained method correctly handles loading from a directory
-            # that contains 'adapter_config.json' and 'adapter_model.safetensors' (or .bin).
-            
-            # Load UNet LoRA adapters
+            # Load the adapter weights into the PeftModel instances.
             unet_lora_path = Path(lora_weights_dir) / "unet"
             if unet_lora_path.is_dir():
-                # The first argument is the base model (wrapped by PeftModel in this case)
-                # The second argument is the path to the adapter weights directory
                 model.unet = PeftModel.from_pretrained(model.unet, str(unet_lora_path))
                 logger.info(f"Loaded UNet LoRA adapter weights from {unet_lora_path}")
             else:
@@ -966,13 +852,8 @@ class LoraDiffusionModel(pl.LightningModule):
 
             logger.info(f"Successfully loaded LoRA weights from {lora_weights_dir}.")
             
-            # After loading, it's good practice to re-apply freezing and set modes
-            # This ensures consistency whether it's for continued training or inference.
             model._freeze_models() # Re-freeze base models
 
-            # Set modules to train mode if you intend to continue training.
-            # If this model instance is purely for inference, then model.eval() would be appropriate.
-            # For a training setup that loads previous weights, setting to train is usually the goal.
             model.unet.train()
             if model.hparams.train_text_encoder_lora:
                 model.text_encoder.train()

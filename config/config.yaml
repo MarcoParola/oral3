@@ -1,83 +1,92 @@
-# =================================================================
-# ===                      CONFIGURATION FILE                   ===
-# =================================================================
+defaults:
+  - _datasets
+  - _models
+  - _self_
 
-# Global Task Configuration
-# Used by: train.py, test.py
+# -----------------------------------------------------------------
+# ---                 Primary Run Configuration                 ---
+# -----------------------------------------------------------------
+
+# Select the active dataset and model for this run.
+# These keys must correspond to entries in _datasets.yaml and _models.yaml.
+active_dataset: PhotoMOCI    # Options: PhotoMOCI, OC_DATASET_2
+active_model: resnet50      # Options: resnet50, vit_b_16
+
+# Defines the primary objective for the script.
 task: 'classification'
 classification_mode: 'whole'
 
-# Model Configuration
-# Used by: train.py, test.py
 # -----------------------------------------------------------------
-# To switch models, just comment/uncomment the respective block below.
-# The 'run_name' and 'save_path' will update automatically.
-# The number of classes is now discovered automatically from the dataset.
+# ---                   Model Configuration                     ---
 # -----------------------------------------------------------------
+
 model:
-  output_dim: 64 # Dimension of the feature vector before the final classification layer
+  # The model's name and pre-trained weights are inherited from _models.yaml.
+  name: ${models.classification.${active_model}.name}
+  weights: ${models.classification.${active_model}.weights}
 
-  # --- Vision Transformer (ViT) Configuration ---
-  # name: vit_b_16
-  # weights: ViT_B_16_Weights.IMAGENET1K_V1
+  # Dimension of the feature vector before the final classification layer.
+  output_dim: 64
 
-  # --- ResNet50 Configuration  ---
-  name: resnet50
-  weights: ResNet50_Weights.IMAGENET1K_V1
+# -----------------------------------------------------------------
+# ---                  Dataset Configuration                    ---
+# -----------------------------------------------------------------
 
-# Dataset Configuration
 dataset:
-  data_format: 'json' # Options: 'directory', 'json'
-  base_path: ./data
-  dataset_name: PhotoMOCI # Options: OC_DATASET_2, PhotoMOCI
-  augmentation_type: aug_lora_10% # Options: no_aug, aug_stylegan_10.0%, aug_lora_10%
-  resize: 224 # 224 is a standard size for both ViT and ResNet
+  # Core dataset properties are inherited from _datasets.yaml.
+  name: ${datasets.${active_dataset}.name}
+  type: ${datasets.${active_dataset}.type}
+  base_path: ${datasets.${active_dataset}.base_path}
 
-# Training Parameters
+  # Experiment-specific parameters.
+  augmentation_data_path: null # D:/Tesi/FINAL_MODELS/synthetic_data/PhotoMOCI/stablediffusion_text_img/
+  augmentation_percentage: 100.0
+
+  resize: 224 # Standard image size for vision models.
+
+# -----------------------------------------------------------------
+# ---                 Training Parameters                       ---
+# -----------------------------------------------------------------
+
 train:
-  save_path: "./models/${model.name}_${dataset.dataset_name}_${dataset.augmentation_type}"
+  save_path: "./models/${model.name}_${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}"
   seed: 42
   batch_size: 64
   lr: 0.00001
   devices: 1
   max_epochs: 100
-  num_workers: 4
-  
+  num_workers: 5
   patience: 10
-  monitor: 'val/loss' 
-  mode: 'min' 
+  monitor: 'val/loss'
+  mode: 'min'
+  save_top_k: 1
+  log_every_n_steps: 1
 
-  save_top_k: 1 
+# -----------------------------------------------------------------
+# ---                  Logging Configuration                    ---
+# -----------------------------------------------------------------
 
-  log_every_n_steps: 1 # Log every 10 steps
-
-# Logging Parameters
-# Used by both train.py and test.py, but test.py overrides the version.
 log:
-  path: "./logs/${dataset.dataset_name}_${dataset.augmentation_type}"
+  path: "./logs/${dataset.name}_${now:%Y-%m-%d_%H-%M-%S}}"
   wandb: True
   tensorboard: True
 
-# Weights & Biases (Wandb) Configuration
-# Used by both train.py and test.py.
 wandb:
   entity: f-nocella1-university-of-pisa
-  project: ORAL3_classification
+  project: ORAL3_class
   tag: ""
-  run_name: '${model.name}_${dataset.dataset_name}_${dataset.augmentation_type}'
+  run_name: '${model.name}_${dataset.name}'
 
 hydra:
   run:
-    dir: logs/${task}/${model.name}/${dataset.dataset_name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: logs/${task}/${model.name}/${dataset.name}/${now:%Y-%m-%d_%H-%M-%S}
 
-# =================================================================
-# ===                   TEST-ONLY PARAMETERS                    ===
-# =================================================================
-# These parameters are primarily for the test.py script.
-# They are meant to be overridden from the command line.
+# -----------------------------------------------------------------
+# ---              Testing-Specific Parameters                  ---
+# -----------------------------------------------------------------
 
-# Used by test.py to generate saliency maps.
-generate_map: "None" # Options: "None", "grad-cam"
-
-checkpoint_base_dir: 'logs/classification/resnet50/PhotoMOCI/2025-07-07_18-34-57/' # Relative path to the checkpoint directory. example: 'logs/classification/resnet50/PhotoMOCI/2025-07-03_09-32-06/'
+generate_map: "None" # Saliency map generation. Options: "None", "grad-cam".
+checkpoint_base_dir: 'logs/classification/resnet50/PhotoMOCI/2025-08-22_17-01-14/'
 checkpoint_file_name: null
+
+

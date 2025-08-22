@@ -1,0 +1,22 @@
+# =================================================================
+# ===                        DATASETS                           ===
+# =================================================================
+
+datasets:
+  PhotoMOCI:
+    name: "PhotoMOCI"
+    type: "json" # 'json' for COCO-style, 'directory' for class folders
+    base_path: "E:/TESI/FINALE/oral3/data/PhotoMOCI"
+    image_folder: "oral1" # Subdirectory containing the images
+    train_file: "train.json"
+    val_file: "val.json"
+    test_file: "test.json"
+
+  OC_DATASET_2:
+    name: "OC_DATASET_2"
+    type: "directory"
+    base_path: "E:/TESI/FINALE/oral3/data/OC_DATASET_2"
+    image_folder: null # Not needed for directory structure
+    train_file: "train" # Refers to the 'train' subfolder
+    val_file: "val"     # Refers to the 'val' subfolder
+    test_file: "test"   # Refers to the 'test' subfolder

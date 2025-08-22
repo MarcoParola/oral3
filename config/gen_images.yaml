@@ -1,0 +1,147 @@
+defaults:
+  - _datasets
+  - _models
+  - _self_
+
+# -----------------------------------------------------------------
+# ---                      Configuration                        ---
+# -----------------------------------------------------------------
+
+seed: 42
+output_base_path: "logs/gen_images/${now:%Y-%m-%d_%H-%M-%S}"
+stylegan3_repo_path: 'libs/stylegan3'
+
+hydra:
+  run:
+    dir: logs/gen_images/${now:%Y-%m-%d_%H-%M-%S}
+# -----------------------------------------------------------------
+# ---                 Augmentation Jobs                         ---
+# -----------------------------------------------------------------
+# Each block defines a self-contained data generation task.
+# Enable or disable jobs by setting 'enabled' to true or false.
+# -----------------------------------------------------------------
+
+augmentation_jobs:
+  # --- Jobs for PhotoMOCI ---
+
+  - name: "LoRA_Img2Img_for_PhotoMOCI"
+    enabled: true
+    dataset: PhotoMOCI
+    type: "lora_generate_img2img"
+    num_per_class: 1
+    params:
+      base_model_name: ${models.base.stable_diffusion_v1_5}
+      ckpt_path: ${models.lora_diffusion.${..dataset}.ckpt}
+      compute: {device: "cuda", dtype: "float16"}
+      generation: {steps: 100, guidance_scale: 7.5, strength: 0.4, image_size: 256}
+      use_prompt_variation: true
+      negative_prompt: "low quality, blurry, noisy, watermark, signature"
+      save_comparison: true
+
+  - name: "LoRA_Txt2Img_for_PhotoMOCI"
+    enabled: true
+    dataset: PhotoMOCI
+    type: "lora_generate_txt2img"
+    num_per_class: 1
+    params:
+      base_model_name: ${models.base.stable_diffusion_v1_5}
+      ckpt_path: ${models.lora_diffusion.${..dataset}.ckpt}
+      compute: {device: "cuda", dtype: "float16"}
+      generation: {steps: 100, guidance_scale: 7.5, image_size: 256}
+      use_prompt_variation: true
+      negative_prompt: "low quality, blurry, noisy, watermark, signature"
+
+  - name: "StyleGAN3_Generation_for_PhotoMOCI"
+    enabled: true
+    dataset: PhotoMOCI
+    type: "stylegan3_generate"
+    num_per_class: 1
+    params:
+      ckpt_path: ${models.stylegan3.${..dataset}.standard}
+      truncation_psi: 0.7
+      compute: {device: "cuda", dtype: "float16"}
+
+  - name: "AC_StyleGAN3_Generation_for_PhotoMOCI"
+    enabled: true
+    dataset: PhotoMOCI
+    type: "stylegan3_generate"
+    num_per_class: 1
+    params:
+      ckpt_path: ${models.stylegan3.${..dataset}.ac_gan}
+      truncation_psi: 0.7
+      compute: {device: "cuda", dtype: "float16"}
+
+  - name: "Manual_Augmentation_for_PhotoMOCI"
+    enabled: true
+    dataset: PhotoMOCI
+    type: "manual_augment"
+    num_per_class: 1
+    params:
+      transforms:
+        - {_target_: torchvision.transforms.Resize, size: [500, 500], interpolation: 3}
+        - {_target_: torchvision.transforms.RandomHorizontalFlip, p: 0.5}
+        - {_target_: torchvision.transforms.ColorJitter, brightness: 0.2, contrast: 0.2, saturation: 0.2}
+        - {_target_: torchvision.transforms.RandomAffine, degrees: 15, translate: [0.1, 0.1], scale: [0.85, 1.15], shear: 10}
+        - {_target_: torchvision.transforms.CenterCrop, size: [256, 256]}
+
+  # --- Jobs for OC_DATASET_2 ---
+
+  - name: "LoRA_Img2Img_for_OC_DATASET_2"
+    enabled: true
+    dataset: OC_DATASET_2
+    type: "lora_generate_img2img"
+    num_per_class: 1
+    params:
+      base_model_name: ${models.base.stable_diffusion_v1_5}
+      ckpt_path: ${models.lora_diffusion.${..dataset}.ckpt}
+      compute: {device: "cuda", dtype: "float16"}
+      generation: {steps: 100, guidance_scale: 7.5, strength: 0.4, image_size: 256}
+      use_prompt_variation: true
+      negative_prompt: "low quality, blurry, noisy, text, watermark, signature"
+      save_comparison: true
+
+  - name: "LoRA_Txt2Img_for_OC_DATASET_2"
+    enabled: true
+    dataset: OC_DATASET_2
+    type: "lora_generate_txt2img"
+    num_per_class: 1
+    params:
+      base_model_name: ${models.base.stable_diffusion_v1_5}
+      ckpt_path: ${models.lora_diffusion.${..dataset}.ckpt}
+      compute: {device: "cuda", dtype: "float16"}
+      generation: {steps: 100, guidance_scale: 7.5, image_size: 256}
+      use_prompt_variation: true
+      negative_prompt: "low quality, blurry, noisy, watermark, signature"
+
+  - name: "StyleGAN3_Generation_for_OC_DATASET_2"
+    enabled: true
+    dataset: OC_DATASET_2
+    type: "stylegan3_generate"
+    num_per_class: 1
+    params:
+      ckpt_path: ${models.stylegan3.${..dataset}.standard}
+      truncation_psi: 0.7
+      compute: {device: "cuda", dtype: "float16"}
+
+  - name: "AC_StyleGAN3_Generation_for_OC_DATASET_2"
+    enabled: true
+    dataset: OC_DATASET_2
+    type: "stylegan3_generate"
+    num_per_class: 1
+    params:
+      ckpt_path: ${models.stylegan3.${..dataset}.ac_gan}
+      truncation_psi: 0.7
+      compute: {device: "cuda", dtype: "float16"}
+
+  - name: "Manual_Augmentation_for_OC_DATASET_2"
+    enabled: true
+    dataset: OC_DATASET_2
+    type: "manual_augment"
+    num_per_class: 1
+    params:
+      transforms:
+        - {_target_: torchvision.transforms.Resize, size: [500, 500], interpolation: 3}
+        - {_target_: torchvision.transforms.RandomHorizontalFlip, p: 0.5}
+        - {_target_: torchvision.transforms.ColorJitter, brightness: 0.2, contrast: 0.2, saturation: 0.2}
+        - {_target_: torchvision.transforms.RandomAffine, degrees: 15, translate: [0.1, 0.1], scale: [0.85, 1.15], shear: 10}
+        - {_target_: torchvision.transforms.CenterCrop, size: [256, 256]}
