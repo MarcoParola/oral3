@@ -368,12 +368,10 @@ def run_stylegan_training(cfg: DictConfig):
     for key in ['source_data_base_path','coco_image_source_dir', 'image_folder', 'prepared_data_root', 'train_data_file', 'validation_data_file', 'resolution']:
         params.pop(key, None)
     
-    # If not in AC-GAN mode, remove AC-GAN specific parameters.
     if not is_ac_gan_mode:
         for key in ['class-weight', 'val-interval']:
             params.pop(key, None)
 
-    # Pass W&B parameters.
     if cfg.log.get('wandb', False):
         params['wandb-log'] = True
         params['wandb-project'] = cfg.wandb.project
@@ -383,7 +381,6 @@ def run_stylegan_training(cfg: DictConfig):
     # Build the final command list.
     args = [sys.executable, "-u", str(custom_train_script)]
     
-    # Gestisci prima i flag booleani specifici come --ac-gan
     if is_ac_gan_mode:
         args.append('--ac-gan')
 
