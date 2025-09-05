@@ -61,6 +61,10 @@ class AugOralClassificationDataset(OralClassificationDataset):
         logger.info(f"Loaded {len(final_augmented_samples)} augmented samples ({percentage}%) "
                     f"from a total of {len(augmented_samples)} available.")
 
+        random.shuffle(self.samples)  # Shuffle the combined dataset
+        logger.info("Shuffled the combined dataset samples.")
+
+
     def _collect_samples_from_path(self, path: str) -> List[Tuple[str, int, bool]]:
         """Collects samples by detecting the source type (directory or JSON)."""
         if os.path.isdir(path):

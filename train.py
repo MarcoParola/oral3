@@ -50,11 +50,13 @@ def main(cfg):
     else: torch.set_float32_matmul_precision('medium')
     
     # Setup the seed for reproducibility
-    seed = cfg.get('seed', 42)
+    seed = cfg.train.seed
     if seed == -1 or seed is None:
         # Use a random seed
         seed = int.from_bytes(os.urandom(4), byteorder="big")
     pl.seed_everything(seed, workers=True)
+
+    print("The seed has been set for reproducibility and is:", seed)
 
     # Callbacks list
     callbacks = []
